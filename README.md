@@ -20,6 +20,12 @@ App Android (Kotlin + Jetpack Compose + Material 3) che unisce un **organizzator
 - **Più conti**, categorie personalizzabili, **import/export CSV**.
 
 ### Extra
+- **Abitudini da evitare** con conteggio dei giorni liberi e segnalazione delle ricadute.
+- **Timer Focus** (pomodoro) con sessioni giornaliere.
+- **Blocco app** con PIN a 4 cifre e sblocco biometrico opzionale.
+- **Backup completo** in JSON (anche su Google Drive dal selettore file) e ripristino.
+- **Palette** selezionabili (Viola, Smeraldo, Oceano, Tramonto, Rosa, Grafite) e tema chiaro/scuro.
+- Due widget: riepilogo (abitudini + saldo) e **elenco abitudini** completabili con un tocco.
 - Widget in home (abitudini di oggi + saldo totale).
 - Notifiche per abitudini, routine, task e budget superato.
 - Statistiche con grafici (abitudini ultimi 7 giorni, spese per categoria, entrate vs uscite a 6 mesi).
@@ -34,7 +40,10 @@ Requisiti: JDK 17 e Android SDK (compileSdk 35).
 # APK: app/build/outputs/apk/debug/app-debug.apk
 ```
 
-La CI GitHub Actions (`.github/workflows/android.yml`) compila l'APK debug a ogni push e lo pubblica come artefatto.
+La CI GitHub Actions (`.github/workflows/android.yml`) compila gli APK a ogni push/PR e li carica come artefatto.
+Ad ogni push su `main` pubblica automaticamente una **Release** su GitHub (`v1.0.<numero build>`) con l'APK installabile
+(ultima versione: sezione *Releases* del repository). Le build sono firmate con un keystore di debug condiviso
+(`app/debug.keystore`), quindi ogni versione si installa come aggiornamento sopra la precedente.
 
 ## Struttura
 

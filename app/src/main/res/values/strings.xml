@@ -2,4 +2,5 @@
 <resources>
     <string name="app_name">Vyrn Tracker</string>
     <string name="widget_description">Abitudini di oggi e saldo totale</string>
+    <string name="widget_habits_description">Elenco delle abitudini di oggi, tocca per completarle</string>
 </resources>

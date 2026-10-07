@@ -18,6 +18,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun routineDao(): RoutineDao
     abstract fun taskDao(): TaskDao
     abstract fun financeDao(): FinanceDao
+    abstract fun backupDao(): BackupDao
 
     companion object {
         @Volatile

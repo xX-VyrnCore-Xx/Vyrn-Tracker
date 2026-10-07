@@ -57,10 +57,19 @@ object HabitLogic {
     fun isScheduled(h: Habit, d: LocalDate): Boolean =
         if (h.freqType == 1) isWeekdayOn(h.weekdaysMask, d) else true
 
-    fun isDone(h: Habit, log: HabitLog?): Boolean = log != null && log.value >= h.target
+    /** Per le abitudini "da evitare" (kind 2) il giorno è riuscito se NON c'è una ricaduta registrata. */
+    fun isDone(h: Habit, log: HabitLog?): Boolean =
+        if (h.kind == 2) log == null || log.value < 1.0 else log != null && log.value >= h.target
 
-    fun doneDays(h: Habit, logs: Map<Long, HabitLog>): Set<Long> =
-        logs.filterValues { it.value >= h.target }.keys
+    fun doneDays(h: Habit, logs: Map<Long, HabitLog>): Set<Long> {
+        if (h.kind == 2) {
+            val end = LocalDate.now().toEpochDay()
+            val start = maxOf(h.createdDay, end - 3650)
+            if (end < start) return emptySet()
+            return (start..end).filter { d -> (logs[d]?.value ?: 0.0) < 1.0 }.toSet()
+        }
+        return logs.filterValues { it.value >= h.target }.keys
+    }
 
     private fun weekStart(d: LocalDate): LocalDate = d.minusDays((d.dayOfWeek.value - 1).toLong())
 
@@ -105,9 +114,13 @@ object HabitLogic {
         return count
     }
 
-    fun streakUnit(h: Habit): String = if (h.freqType == 2) "sett." else "gg"
+    fun streakUnit(h: Habit): String = when {
+        h.kind == 2 -> "gg liberi"
+        h.freqType == 2 -> "sett."
+        else -> "gg"
+    }
 
-    fun frequencyText(h: Habit): String = when (h.freqType) {
+    fun frequencyText(h: Habit): String = if (h.kind == 2) "Da evitare" else when (h.freqType) {
         1 -> weekdaysText(h.weekdaysMask)
         2 -> "${h.timesPerWeek} volte a settimana"
         else -> "Ogni giorno"
