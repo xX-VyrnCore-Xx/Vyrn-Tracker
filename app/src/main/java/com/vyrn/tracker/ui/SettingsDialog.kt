@@ -50,6 +50,7 @@ import com.vyrn.tracker.lock.AppLock
 import com.vyrn.tracker.ui.theme.AppPalette
 import com.vyrn.tracker.ui.theme.Palettes
 import com.vyrn.tracker.ui.theme.ThemeSettings
+import com.vyrn.tracker.update.UpdateChecker
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -60,6 +61,7 @@ fun SettingsDialog(onDismiss: () -> Unit) {
     var pinDialog by remember { mutableStateOf(false) }
     var pendingImport by remember { mutableStateOf<Uri?>(null) }
     var bio by remember { mutableStateOf(AppLock.biometricEnabled(ctx)) }
+    var updates by remember { mutableStateOf(UpdateChecker.enabled(ctx)) }
 
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) scope.launch {
@@ -115,6 +117,19 @@ fun SettingsDialog(onDismiss: () -> Unit) {
                             Text("Rimuovi PIN")
                         }
                     }
+                }
+
+                Text("Aggiornamenti", style = MaterialTheme.typography.labelLarge)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Avvisa se esce una nuova versione")
+                        Text(
+                            "Usa internet solo per questo controllo",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(checked = updates, onCheckedChange = { updates = it; UpdateChecker.setEnabled(ctx, it) })
                 }
 
                 Text("Backup completo", style = MaterialTheme.typography.labelLarge)

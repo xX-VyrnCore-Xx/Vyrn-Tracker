@@ -64,6 +64,28 @@ object AppLock {
         locked = false
     }
 
+    // ---- Protezione dai tentativi ripetuti: dopo 5 errori attesa crescente (30 s, 60 s, ... max 15 min) ----
+    private const val MAX_ATTEMPTS = 5
+
+    fun lockoutRemainingMs(ctx: Context): Long =
+        (prefs(ctx).getLong("until", 0L) - System.currentTimeMillis()).coerceAtLeast(0L)
+
+    fun registerFailure(ctx: Context) {
+        val p = prefs(ctx)
+        val fails = p.getInt("fails", 0) + 1
+        val e = p.edit().putInt("fails", fails)
+        if (fails >= MAX_ATTEMPTS) {
+            val step = (fails - MAX_ATTEMPTS).coerceAtMost(5)
+            val delay = minOf(30_000L shl step, 15 * 60_000L)
+            e.putLong("until", System.currentTimeMillis() + delay)
+        }
+        e.apply()
+    }
+
+    fun registerSuccess(ctx: Context) {
+        prefs(ctx).edit().putInt("fails", 0).putLong("until", 0L).apply()
+    }
+
     fun unlock() {
         locked = false
     }
