@@ -281,6 +281,11 @@ fun HabitCard(
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
         label = "checkScale",
     )
+    val iconScale by animateFloatAsState(
+        targetValue = if (done) 1f else 0f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "checkIcon",
+    )
     VCard(modifier = modifier.alpha(if (scheduled) 1f else 0.55f), onClick = onClick) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             EmojiBadge(h.icon, color)
@@ -307,13 +312,12 @@ fun HabitCard(
                         .clickable { onToggle() },
                     contentAlignment = Alignment.Center,
                 ) {
-                    AnimatedVisibility(
-                        visible = done,
-                        enter = scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn(),
-                        exit = scaleOut() + fadeOut(),
-                    ) {
-                        Icon(Icons.Rounded.Check, contentDescription = "Completata", tint = androidx.compose.ui.graphics.Color.White)
-                    }
+                    Icon(
+                        Icons.Rounded.Check,
+                        contentDescription = "Completata",
+                        tint = androidx.compose.ui.graphics.Color.White,
+                        modifier = Modifier.scale(iconScale).alpha(iconScale.coerceIn(0f, 1f)),
+                    )
                 }
             } else {
                 val step = HabitLogic.step(h)
