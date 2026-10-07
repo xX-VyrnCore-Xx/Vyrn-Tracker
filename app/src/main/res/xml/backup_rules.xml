@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Il PIN e le impostazioni di sblocco non vengono mai copiati nei backup di sistema. -->
+    <exclude domain="sharedpref" path="vyrn_lock.xml" />
+</full-backup-content>

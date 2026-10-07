@@ -3,6 +3,7 @@ package com.vyrn.tracker
 import android.Manifest
 import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -23,19 +24,25 @@ import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Checklist
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.fragment.app.FragmentActivity
 import com.vyrn.tracker.lock.AppLock
 import com.vyrn.tracker.ui.LockScreen
@@ -44,6 +51,7 @@ import com.vyrn.tracker.ui.StatsScreen
 import com.vyrn.tracker.ui.finance.FinanceScreen
 import com.vyrn.tracker.ui.routine.RoutineScreen
 import com.vyrn.tracker.ui.theme.ThemeSettings
+import com.vyrn.tracker.update.UpdateChecker
 import com.vyrn.tracker.ui.theme.VyrnTheme
 
 class MainActivity : FragmentActivity() {
@@ -61,6 +69,9 @@ class MainActivity : FragmentActivity() {
 
     override fun onStart() {
         super.onStart()
+        // Con il PIN attivo l'app non compare nelle anteprime recenti né negli screenshot.
+        if (AppLock.pinSet) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
         AppLock.onForeground()
     }
 
@@ -84,6 +95,32 @@ private fun VyrnApp() {
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     LaunchedEffect(Unit) {
         if (Build.VERSION.SDK_INT >= 33) permission.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
+
+    val ctx = LocalContext.current
+    var update by remember { mutableStateOf<UpdateChecker.Info?>(null) }
+    LaunchedEffect(Unit) {
+        if (UpdateChecker.enabled(ctx)) {
+            val info = UpdateChecker.check(ctx)
+            if (info != null && info.version != UpdateChecker.dismissedVersion(ctx)) update = info
+        }
+    }
+    update?.let { info ->
+        val uriHandler = LocalUriHandler.current
+        AlertDialog(
+            onDismissRequest = { UpdateChecker.dismiss(ctx, info.version); update = null },
+            title = { Text("Nuova versione disponibile") },
+            text = { Text("È uscita la versione ${info.version} di Vyrn Tracker. Scaricala dalla pagina delle Release: si installa sopra quella attuale senza perdere i dati.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    uriHandler.openUri(info.url)
+                    update = null
+                }) { Text("Scarica") }
+            },
+            dismissButton = {
+                TextButton(onClick = { UpdateChecker.dismiss(ctx, info.version); update = null }) { Text("Più tardi") }
+            },
+        )
     }
 
     Scaffold(

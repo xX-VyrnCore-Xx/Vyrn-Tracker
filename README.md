@@ -22,7 +22,9 @@ App Android (Kotlin + Jetpack Compose + Material 3) che unisce un **organizzator
 ### Extra
 - **Abitudini da evitare** con conteggio dei giorni liberi e segnalazione delle ricadute.
 - **Timer Focus** (pomodoro) con sessioni giornaliere.
-- **Blocco app** con PIN a 4 cifre e sblocco biometrico opzionale.
+- **Blocco app** con PIN a 4 cifre, sblocco biometrico opzionale, attesa crescente dopo 5 errori, anteprime/screenshot disattivati e PIN escluso dai backup di sistema.
+- **Avviso nuove versioni** (controllo su GitHub Releases, disattivabile dalle impostazioni: è l'unica chiamata di rete).
+- **Statistiche per abitudine**: serie attuale e migliore, ultimi 30 giorni e mappa delle ultime 12 settimane.
 - **Backup completo** in JSON (anche su Google Drive dal selettore file) e ripristino.
 - **Palette** selezionabili (Viola, Smeraldo, Oceano, Tramonto, Rosa, Grafite) e tema chiaro/scuro.
 - Due widget: riepilogo (abitudini + saldo) e **elenco abitudini** completabili con un tocco.

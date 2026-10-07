@@ -114,6 +114,36 @@ object HabitLogic {
         return count
     }
 
+    /** Serie più lunga di sempre (giorni consecutivi, o settimane per "X volte a settimana"). */
+    fun bestStreak(h: Habit, done: Set<Long>, today: LocalDate): Int {
+        if (done.isEmpty()) return 0
+        var best = 0
+        var run = 0
+        if (h.freqType == 2 && h.kind != 2) {
+            val n = h.timesPerWeek.coerceAtLeast(1)
+            var ws = weekStart(LocalDate.ofEpochDay(done.min()))
+            while (!ws.isAfter(today)) {
+                if (weekCount(done, ws) >= n) {
+                    run++
+                    best = maxOf(best, run)
+                } else run = 0
+                ws = ws.plusWeeks(1)
+            }
+            return best
+        }
+        var d = LocalDate.ofEpochDay(done.min())
+        while (!d.isAfter(today)) {
+            if (isScheduled(h, d)) {
+                if (d.toEpochDay() in done) {
+                    run++
+                    best = maxOf(best, run)
+                } else run = 0
+            }
+            d = d.plusDays(1)
+        }
+        return best
+    }
+
     fun streakUnit(h: Habit): String = when {
         h.kind == 2 -> "gg liberi"
         h.freqType == 2 -> "sett."

@@ -25,6 +25,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -37,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import com.vyrn.tracker.lock.AppLock
+import kotlinx.coroutines.delay
 
 private tailrec fun Context.findFragmentActivity(): FragmentActivity? = when (this) {
     is FragmentActivity -> this
@@ -72,20 +74,34 @@ fun LockScreen() {
     val ctx = LocalContext.current
     var pin by remember { mutableStateOf("") }
     var error by remember { mutableStateOf(false) }
+    var remaining by remember { mutableLongStateOf(AppLock.lockoutRemainingMs(ctx)) }
     val useBio = remember { AppLock.biometricEnabled(ctx) && biometricAvailable(ctx) }
+
+    val unlockNow = {
+        AppLock.registerSuccess(ctx)
+        AppLock.unlock()
+    }
 
     BackHandler { }
     LaunchedEffect(Unit) {
-        if (useBio) showBiometricPrompt(ctx) { AppLock.unlock() }
+        if (useBio) showBiometricPrompt(ctx) { unlockNow() }
+    }
+    LaunchedEffect(remaining > 0) {
+        while (remaining > 0) {
+            delay(500)
+            remaining = AppLock.lockoutRemainingMs(ctx)
+        }
     }
 
     fun press(d: String) {
-        if (pin.length >= AppLock.PIN_LENGTH) return
+        if (remaining > 0 || pin.length >= AppLock.PIN_LENGTH) return
         error = false
         pin += d
         if (pin.length == AppLock.PIN_LENGTH) {
-            if (AppLock.verify(ctx, pin)) AppLock.unlock()
+            if (AppLock.verify(ctx, pin)) unlockNow()
             else {
+                AppLock.registerFailure(ctx)
+                remaining = AppLock.lockoutRemainingMs(ctx)
                 error = true
                 pin = ""
             }
@@ -97,8 +113,12 @@ fun LockScreen() {
             Text("🔒", style = MaterialTheme.typography.displayMedium)
             Text("Vyrn Tracker", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Text(
-                if (error) "PIN errato, riprova" else "Inserisci il PIN",
-                color = if (error) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                when {
+                    remaining > 0 -> "Troppi tentativi. Riprova tra ${(remaining + 999) / 1000} s"
+                    error -> "PIN errato, riprova"
+                    else -> "Inserisci il PIN"
+                },
+                color = if (error || remaining > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 repeat(AppLock.PIN_LENGTH) { i ->
@@ -118,7 +138,7 @@ fun LockScreen() {
             }
             Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                 if (useBio) {
-                    PadIcon(onClick = { showBiometricPrompt(ctx) { AppLock.unlock() } }) {
+                    PadIcon(onClick = { showBiometricPrompt(ctx) { unlockNow() } }) {
                         Icon(Icons.Rounded.Fingerprint, contentDescription = "Impronta")
                     }
                 } else Spacer(Modifier.size(68.dp))

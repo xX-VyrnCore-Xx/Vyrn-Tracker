@@ -31,6 +31,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Check
@@ -354,6 +355,27 @@ fun HabitCard(
 }
 
 @Composable
+private fun HabitHeatmap(done: Set<Long>, color: androidx.compose.ui.graphics.Color, today: LocalDate) {
+    val thisWeek = today.minusDays((today.dayOfWeek.value - 1).toLong())
+    Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+        for (w in 11 downTo 0) {
+            val ws = thisWeek.minusWeeks(w.toLong())
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                for (i in 0..6) {
+                    val d = ws.plusDays(i.toLong())
+                    val fill = when {
+                        d.isAfter(today) -> androidx.compose.ui.graphics.Color.Transparent
+                        d.toEpochDay() in done -> color
+                        else -> MaterialTheme.colorScheme.surfaceVariant
+                    }
+                    Box(Modifier.size(14.dp).clip(RoundedCornerShape(3.dp)).background(fill))
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun HabitDetailDialog(
     habit: Habit,
     day: Long,
@@ -366,6 +388,7 @@ private fun HabitDetailDialog(
     var note by remember { mutableStateOf(log?.note.orEmpty()) }
     val today = LocalDate.now()
     val streak = HabitLogic.streak(habit, done, today)
+    val best = HabitLogic.bestStreak(habit, done, today)
     val last30 = (0..29).count { today.minusDays(it.toLong()).toEpochDay() in done }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -373,9 +396,23 @@ private fun HabitDetailDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(fmtDayLong(day).replaceFirstChar { it.uppercase() }, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Serie attuale: $streak ${HabitLogic.streakUnit(habit)}")
-                Text("Completamenti totali: ${done.size}")
-                Text("Ultimi 30 giorni: $last30")
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Column {
+                        Text("Serie attuale", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("$streak ${HabitLogic.streakUnit(habit)}", fontWeight = FontWeight.Bold)
+                    }
+                    Column {
+                        Text("Serie migliore", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("$best ${HabitLogic.streakUnit(habit)}", fontWeight = FontWeight.Bold)
+                    }
+                    Column {
+                        Text("Totali", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("${done.size}", fontWeight = FontWeight.Bold)
+                    }
+                }
+                Text("Ultimi 30 giorni: $last30 su 30 (${last30 * 100 / 30}%)")
+                Text("Ultime 12 settimane", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                HabitHeatmap(done, colorOf(habit.colorIdx), today)
                 TextInput("Nota del giorno", note, { note = it }, singleLine = false)
             }
         },
