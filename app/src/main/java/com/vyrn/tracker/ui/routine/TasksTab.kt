@@ -25,6 +25,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,6 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import com.vyrn.tracker.DeepLink
 import com.vyrn.tracker.RoutineViewModel
 import com.vyrn.tracker.data.Task
 import com.vyrn.tracker.data.fmtDay
@@ -68,6 +70,12 @@ fun TasksTab(vm: RoutineViewModel) {
     var showDone by rememberSaveable { mutableStateOf(false) }
     var editor by remember { mutableStateOf<Task?>(null) }
     var quick by remember { mutableStateOf("") }
+    LaunchedEffect(DeepLink.action) {
+        if (DeepLink.action == DeepLink.NEW_TASK) {
+            editor = Task(title = "")
+            DeepLink.consume()
+        }
+    }
     val today = LocalDate.now().toEpochDay()
     val list = tasks.filter { it.done == showDone }
         .sortedWith(compareBy<Task>({ if (it.dueDay < 0) Long.MAX_VALUE else it.dueDay }, { -it.priority }))

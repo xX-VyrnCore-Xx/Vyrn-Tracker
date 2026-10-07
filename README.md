@@ -20,6 +20,9 @@ App Android (Kotlin + Jetpack Compose + Material 3) che unisce un **organizzator
 - **Più conti**, categorie personalizzabili, **import/export CSV**.
 
 ### Extra
+- **Scorciatoie dall'icona** (tieni premuta l'icona): Nuovo movimento, Nuovo task, Focus.
+- **Azioni rapide nelle notifiche**: "Fatto" (segna abitudine, routine o task) e "Tra 1 ora" senza aprire l'app.
+- **Foto della ricevuta** sui movimenti (scatto o galleria), salvata solo sul telefono. Le foto non sono incluse nel backup JSON.
 - **Dati affidabili**: indici su date/conti/categorie, saldi e totali calcolati in SQL, operazioni multi-passo in transazione, ripristino dei backup atomico, controllo delle righe orfane all'avvio, copia di sicurezza del database prima di ogni migrazione e **backup automatico giornaliero** (ultimi 7 giorni, ripristinabile dalle impostazioni).
 - **Sfide sulle abitudini** (serie da raggiungere, con barra di avanzamento) e **statistiche annuali** di entrate/uscite.
 - **Abitudini da evitare** con conteggio dei giorni liberi e segnalazione delle ricadute.

@@ -115,6 +115,8 @@ data class FinTx(
     val day: Long,
     val note: String = "",
     val recurringId: Long? = null,
+    /** Nome del file della foto della ricevuta (in files/receipts), se presente. */
+    val receipt: String? = null,
 )
 
 @Entity(tableName = "budgets")

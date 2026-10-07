@@ -28,6 +28,9 @@ object Reminders {
     const val KIND_TASK = 3
     const val KIND_BUDGET = 4
 
+    const val ACTION_DONE = "com.vyrn.tracker.action.REMINDER_DONE"
+    const val ACTION_SNOOZE = "com.vyrn.tracker.action.REMINDER_SNOOZE"
+
     const val EXTRA_KIND = "kind"
     const val EXTRA_ID = "id"
     const val EXTRA_TITLE = "title"
@@ -43,7 +46,7 @@ object Reminders {
         }
     }
 
-    private fun requestCode(kind: Int, id: Long): Int = kind * 100_000 + (id % 100_000).toInt()
+    internal fun requestCode(kind: Int, id: Long): Int = kind * 100_000 + (id % 100_000).toInt()
 
     private fun pending(ctx: Context, kind: Int, id: Long, title: String, mask: Int, minutes: Int, flags: Int): PendingIntent? {
         val intent = Intent(ctx, ReminderReceiver::class.java)
@@ -82,6 +85,29 @@ object Reminders {
         val pi = pending(ctx, kind, id, "", 127, -1, PendingIntent.FLAG_NO_CREATE) ?: return
         ctx.getSystemService(AlarmManager::class.java).cancel(pi)
         pi.cancel()
+        snoozePending(ctx, kind, id, "", PendingIntent.FLAG_NO_CREATE)?.let {
+            ctx.getSystemService(AlarmManager::class.java).cancel(it)
+            it.cancel()
+        }
+    }
+
+    private fun snoozePending(ctx: Context, kind: Int, id: Long, title: String, flags: Int): PendingIntent? {
+        val intent = Intent(ctx, ReminderReceiver::class.java)
+            .setAction("snooze")
+            .putExtra(EXTRA_KIND, kind)
+            .putExtra(EXTRA_ID, id)
+            .putExtra(EXTRA_TITLE, title)
+            .putExtra(EXTRA_MASK, 127)
+            .putExtra(EXTRA_MINUTES, -1)
+        val code = (kind + 10) * 100_000 + (id % 100_000).toInt()
+        return PendingIntent.getBroadcast(ctx, code, intent, flags or PendingIntent.FLAG_IMMUTABLE)
+    }
+
+    /** Posticipa il promemoria (di default di un'ora) senza toccare quello ricorrente. */
+    fun snooze(ctx: Context, kind: Int, id: Long, title: String, minutes: Int = 60) {
+        val pi = snoozePending(ctx, kind, id, title, PendingIntent.FLAG_UPDATE_CURRENT) ?: return
+        ctx.getSystemService(AlarmManager::class.java)
+            .setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + minutes * 60_000L, pi)
     }
 
     fun syncHabit(ctx: Context, h: Habit) {
@@ -110,6 +136,41 @@ object Reminders {
         db.habitDao().getHabits().forEach { syncHabit(ctx, it) }
         db.routineDao().getRoutines().forEach { syncRoutine(ctx, it) }
         db.taskDao().getTasks().forEach { syncTask(ctx, it) }
+    }
+
+    /** Notifica di promemoria con i pulsanti "Fatto" e "Tra 1 ora". */
+    @SuppressLint("MissingPermission")
+    fun notifyReminder(ctx: Context, kind: Int, id: Long, title: String, head: String, text: String) {
+        val nm = NotificationManagerCompat.from(ctx)
+        if (!nm.areNotificationsEnabled()) return
+        ensureChannel(ctx)
+        val open = PendingIntent.getActivity(
+            ctx, 0, Intent(ctx, MainActivity::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val nid = requestCode(kind, id)
+        fun action(act: String, label: String, n: Int): NotificationCompat.Action {
+            val intent = Intent(ctx, ReminderActionReceiver::class.java)
+                .setAction(act)
+                .putExtra(EXTRA_KIND, kind)
+                .putExtra(EXTRA_ID, id)
+                .putExtra(EXTRA_TITLE, title)
+            val pi = PendingIntent.getBroadcast(
+                ctx, nid * 2 + n, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            return NotificationCompat.Action.Builder(R.drawable.ic_notification, label, pi).build()
+        }
+        val n = NotificationCompat.Builder(ctx, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(head)
+            .setContentText(text)
+            .setAutoCancel(true)
+            .setContentIntent(open)
+            .addAction(action(ACTION_DONE, "Fatto", 0))
+            .addAction(action(ACTION_SNOOZE, "Tra 1 ora", 1))
+            .build()
+        nm.notify(nid, n)
     }
 
     @SuppressLint("MissingPermission")
@@ -144,7 +205,7 @@ class ReminderReceiver : BroadcastReceiver() {
             Reminders.KIND_ROUTINE -> "Routine" to "Inizia la routine: $title"
             else -> "Scadenza" to title
         }
-        Reminders.notify(context, kind * 100_000 + (id % 100_000).toInt(), head, text)
+        Reminders.notifyReminder(context, kind, id, title, head, text)
         if (kind != Reminders.KIND_TASK && minutes >= 0) {
             Reminders.scheduleRepeating(context, kind, id, title, mask, minutes)
         }

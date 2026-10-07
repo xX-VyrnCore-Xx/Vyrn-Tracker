@@ -3,4 +3,10 @@
     <string name="app_name">Vyrn Tracker</string>
     <string name="widget_description">Abitudini di oggi e saldo totale</string>
     <string name="widget_habits_description">Elenco delle abitudini di oggi, tocca per completarle</string>
+    <string name="shortcut_new_tx_short">Nuovo movimento</string>
+    <string name="shortcut_new_tx_long">Aggiungi un movimento</string>
+    <string name="shortcut_new_task_short">Nuovo task</string>
+    <string name="shortcut_new_task_long">Aggiungi un task</string>
+    <string name="shortcut_focus_short">Focus</string>
+    <string name="shortcut_focus_long">Avvia il timer Focus</string>
 </resources>

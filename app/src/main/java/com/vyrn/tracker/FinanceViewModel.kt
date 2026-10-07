@@ -15,6 +15,7 @@ import com.vyrn.tracker.data.Debt
 import com.vyrn.tracker.data.FinTx
 import com.vyrn.tracker.data.Goal
 import com.vyrn.tracker.data.Recurring
+import com.vyrn.tracker.data.ReceiptStore
 import com.vyrn.tracker.data.TxType
 import com.vyrn.tracker.data.CategoryTotal
 import com.vyrn.tracker.data.formatMoney
@@ -111,7 +112,10 @@ class FinanceViewModel(app: Application) : AndroidViewModel(app) {
         if (tx.type == TxType.EXPENSE) checkBudget(tx)
     }
 
-    fun deleteTx(tx: FinTx) = io { dao.deleteTx(tx.id) }
+    fun deleteTx(tx: FinTx) = io {
+        dao.deleteTx(tx.id)
+        tx.receipt?.let { ReceiptStore.delete(ctx, it) }
+    }
 
     private suspend fun checkBudget(tx: FinTx) {
         val catId = tx.categoryId ?: return

@@ -173,6 +173,11 @@ object Maintenance {
     }
 }
 
+/** Elimina le foto delle ricevute che non appartengono più a nessun movimento. */
+suspend fun purgeUnusedReceipts(ctx: Context, db: AppDatabase) = withContext(Dispatchers.IO) {
+    ReceiptStore.purgeUnused(ctx, db.financeDao().receiptNames().toSet())
+}
+
 /** Backup automatico giornaliero nella memoria privata dell'app (ultimi 7 giorni). */
 object AutoBackup {
     private const val KEEP = 7

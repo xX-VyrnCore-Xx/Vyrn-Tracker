@@ -13,18 +13,29 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.vyrn.tracker.DeepLink
 import com.vyrn.tracker.RoutineViewModel
 import com.vyrn.tracker.ui.ScreenScaffold
 
 @Composable
 fun RoutineScreen(vm: RoutineViewModel = viewModel()) {
     var sub by rememberSaveable { mutableIntStateOf(0) }
+    LaunchedEffect(DeepLink.action) {
+        when (DeepLink.action) {
+            DeepLink.FOCUS -> {
+                sub = 3
+                DeepLink.consume()
+            }
+            DeepLink.NEW_TASK -> sub = 2 // la scheda Task apre l'editor e consuma la richiesta
+        }
+    }
     ScreenScaffold("Routine") {
         Column(Modifier.fillMaxSize()) {
             TabRow(selectedTabIndex = sub) {

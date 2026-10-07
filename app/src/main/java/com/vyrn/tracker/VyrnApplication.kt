@@ -5,6 +5,7 @@ import com.vyrn.tracker.data.AppDatabase
 import com.vyrn.tracker.data.AutoBackup
 import com.vyrn.tracker.data.Maintenance
 import com.vyrn.tracker.data.processRecurring
+import com.vyrn.tracker.data.purgeUnusedReceipts
 import com.vyrn.tracker.data.seedDefaults
 import com.vyrn.tracker.notify.Reminders
 import com.vyrn.tracker.widget.refreshWidget
@@ -22,6 +23,7 @@ class VyrnApplication : Application() {
         appScope.launch {
             val db = AppDatabase.get(this@VyrnApplication)
             Maintenance.repairOrphans(db)
+            purgeUnusedReceipts(this@VyrnApplication, db)
             seedDefaults(db)
             processRecurring(db)
             Reminders.rescheduleAll(this@VyrnApplication)
