@@ -1,5 +1,14 @@
 package com.vyrn.tracker.ui.finance
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -47,18 +56,31 @@ fun FinanceScreen(vm: FinanceViewModel = viewModel()) {
                     }
                 }
                 Box(Modifier.weight(1f)) {
-                    when (sub) {
-                        0 -> FinanceOverview(vm, onEditTx = { txEditor = it }, onSeeAll = { sub = 1 })
-                        1 -> FinanceTransactions(vm, onEditTx = { txEditor = it })
-                        2 -> FinanceBudgets(vm)
-                        3 -> FinanceGoals(vm)
-                        4 -> FinanceRecurring(vm)
-                        5 -> FinanceDebts(vm)
-                        else -> FinanceManage(vm)
+                    AnimatedContent(
+                        targetState = sub,
+                        transitionSpec = {
+                            (fadeIn(tween(240)) + slideInVertically(tween(240)) { it / 20 }) togetherWith fadeOut(tween(120))
+                        },
+                        label = "financeTabs",
+                    ) { s ->
+                        when (s) {
+                            0 -> FinanceOverview(vm, onEditTx = { txEditor = it }, onSeeAll = { sub = 1 })
+                            1 -> FinanceTransactions(vm, onEditTx = { txEditor = it })
+                            2 -> FinanceBudgets(vm)
+                            3 -> FinanceGoals(vm)
+                            4 -> FinanceRecurring(vm)
+                            5 -> FinanceDebts(vm)
+                            else -> FinanceManage(vm)
+                        }
                     }
                 }
             }
-            if (sub <= 1) {
+            AnimatedVisibility(
+                visible = sub <= 1,
+                modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+                enter = scaleIn() + fadeIn(),
+                exit = scaleOut() + fadeOut(),
+            ) {
                 FloatingActionButton(
                     onClick = {
                         txEditor = FinTx(
@@ -68,7 +90,6 @@ fun FinanceScreen(vm: FinanceViewModel = viewModel()) {
                             day = LocalDate.now().toEpochDay(),
                         )
                     },
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
                 ) { Icon(Icons.Rounded.Add, contentDescription = "Nuovo movimento") }
             }
         }

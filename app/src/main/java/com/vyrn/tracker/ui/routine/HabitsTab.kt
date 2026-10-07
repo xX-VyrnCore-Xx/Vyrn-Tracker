@@ -2,6 +2,17 @@
 
 package com.vyrn.tracker.ui.routine
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -32,7 +43,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -46,6 +56,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -58,6 +69,7 @@ import com.vyrn.tracker.data.fmtDayLong
 import com.vyrn.tracker.data.fmtMonth
 import com.vyrn.tracker.data.formatNumber
 import com.vyrn.tracker.data.parseDoubleIt
+import com.vyrn.tracker.ui.VProgress
 import com.vyrn.tracker.ui.ChipRow
 import com.vyrn.tracker.ui.ColorPicker
 import com.vyrn.tracker.ui.DecimalField
@@ -73,6 +85,7 @@ import com.vyrn.tracker.ui.VCard
 import com.vyrn.tracker.ui.WeekdayChips
 import com.vyrn.tracker.ui.colorOf
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.YearMonth
 
 @Composable
@@ -147,6 +160,7 @@ fun LazyListScope.habitItems(
             onToggle = { vm.toggleHabit(h, day, HabitLogic.isDone(h, log)) },
             onDelta = { delta -> vm.setHabitValue(h, day, (log?.value ?: 0.0) + delta) },
             onClick = { onOpen(h) },
+            modifier = Modifier.animateItem(),
         )
     }
 }
@@ -209,8 +223,17 @@ private fun DaySummary(habits: List<Habit>, logMap: Map<Long, Map<Long, HabitLog
     val scheduled = habits.filter { HabitLogic.isScheduled(it, date) }
     val done = scheduled.count { HabitLogic.isDone(it, logMap[it.id]?.get(day)) }
     val progress = if (scheduled.isEmpty()) 0f else done.toFloat() / scheduled.size
+    val perfect = scheduled.isNotEmpty() && done == scheduled.size
+    val hour = LocalTime.now().hour
+    val greeting = when {
+        date != LocalDate.now() -> fmtDayLong(day).replaceFirstChar { it.uppercase() }
+        hour < 5 -> "Buonanotte"
+        hour < 12 -> "Buongiorno"
+        hour < 18 -> "Buon pomeriggio"
+        else -> "Buonasera"
+    }
     VCard(containerColor = MaterialTheme.colorScheme.primaryContainer) {
-        Text(fmtDayLong(day).replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimaryContainer)
+        Text(greeting, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimaryContainer)
         Spacer(Modifier.height(4.dp))
         Text(
             if (scheduled.isEmpty()) "Nessuna abitudine prevista" else "$done su ${scheduled.size} completate",
@@ -218,8 +241,16 @@ private fun DaySummary(habits: List<Habit>, logMap: Map<Long, Map<Long, HabitLog
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onPrimaryContainer,
         )
+        AnimatedVisibility(visible = perfect, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+            Text(
+                "🎉 Giornata perfetta!",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
         Spacer(Modifier.height(10.dp))
-        LinearProgressIndicator(
+        VProgress(
             progress = { progress },
             modifier = Modifier.fillMaxWidth().height(8.dp).clip(CircleShape),
             trackColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.15f),
@@ -237,10 +268,20 @@ fun HabitCard(
     onToggle: () -> Unit,
     onDelta: (Double) -> Unit,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val color = colorOf(h.colorIdx)
     val done = HabitLogic.isDone(h, log)
-    VCard(modifier = Modifier.alpha(if (scheduled) 1f else 0.55f), onClick = onClick) {
+    val checkColor by animateColorAsState(
+        if (done) color else MaterialTheme.colorScheme.surfaceContainerHigh,
+        label = "checkColor",
+    )
+    val checkScale by animateFloatAsState(
+        targetValue = if (done) 1f else 0.9f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "checkScale",
+    )
+    VCard(modifier = modifier.alpha(if (scheduled) 1f else 0.55f), onClick = onClick) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             EmojiBadge(h.icon, color)
             Spacer(Modifier.width(12.dp))
@@ -261,12 +302,18 @@ fun HabitCard(
             }
             if (h.kind == 0) {
                 Box(
-                    Modifier.size(42.dp).clip(CircleShape)
-                        .background(if (done) color else MaterialTheme.colorScheme.surfaceContainerHigh)
+                    Modifier.size(42.dp).scale(checkScale).clip(CircleShape)
+                        .background(checkColor)
                         .clickable { onToggle() },
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (done) Icon(Icons.Rounded.Check, contentDescription = "Completata", tint = androidx.compose.ui.graphics.Color.White)
+                    AnimatedVisibility(
+                        visible = done,
+                        enter = scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn(),
+                        exit = scaleOut() + fadeOut(),
+                    ) {
+                        Icon(Icons.Rounded.Check, contentDescription = "Completata", tint = androidx.compose.ui.graphics.Color.White)
+                    }
                 }
             } else {
                 val step = HabitLogic.step(h)
@@ -278,7 +325,7 @@ fun HabitCard(
             val value = log?.value ?: 0.0
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                LinearProgressIndicator(
+                VProgress(
                     progress = { (value / h.target).toFloat().coerceIn(0f, 1f) },
                     modifier = Modifier.weight(1f).height(8.dp).clip(CircleShape),
                     color = color,

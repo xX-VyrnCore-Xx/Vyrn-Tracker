@@ -3,8 +3,13 @@
 package com.vyrn.tracker.ui
 
 import android.app.TimePickerDialog
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,6 +31,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -36,6 +42,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -47,6 +54,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -69,6 +78,7 @@ import java.time.LocalDate
 
 val ItemColors: List<Color> = listOf(
     0xFF7C5CFF, 0xFF3B82F6, 0xFF10B981, 0xFFF59E0B, 0xFFEF4444, 0xFFEC4899, 0xFF14B8A6, 0xFF8B5CF6,
+    0xFF06B6D4, 0xFFF97316, 0xFF84CC16, 0xFFA855F7,
 ).map { Color(it) }
 
 fun colorOf(idx: Int): Color = ItemColors[idx.mod(ItemColors.size)]
@@ -81,17 +91,24 @@ val GoalEmojis = listOf("🎯", "✈️", "🚗", "🏠", "💻", "📱", "🎓"
 
 @Composable
 fun ScreenScaffold(title: String, actions: @Composable RowScope.() -> Unit = {}, content: @Composable () -> Unit) {
+    var showSettings by remember { mutableStateOf(false) }
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(title, fontWeight = FontWeight.Bold) },
-                actions = actions,
+                actions = {
+                    actions()
+                    IconButton(onClick = { showSettings = true }) {
+                        Icon(Icons.Rounded.Palette, contentDescription = "Aspetto")
+                    }
+                },
             )
         },
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
     ) { pad ->
         Box(Modifier.padding(pad).fillMaxSize()) { content() }
     }
+    if (showSettings) SettingsDialog(onDismiss = { showSettings = false })
 }
 
 @Composable
@@ -249,7 +266,10 @@ fun WeekdayChips(mask: Int, onChange: (Int) -> Unit) {
 
 @Composable
 fun <T> ChipRow(options: List<T>, selected: T, label: (T) -> String, onSelect: (T) -> Unit) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         options.forEach { o ->
             FilterChip(selected = o == selected, onClick = { onSelect(o) }, label = { Text(label(o), maxLines = 1) })
         }
@@ -359,3 +379,33 @@ fun TextInput(label: String, value: String, onChange: (String) -> Unit, modifier
 }
 
 val ScreenPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp)
+
+/** Barra di avanzamento con animazione fluida quando il valore cambia. */
+@Composable
+fun VProgress(
+    progress: () -> Float,
+    modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colorScheme.primary,
+    trackColor: Color = MaterialTheme.colorScheme.surfaceVariant,
+) {
+    val p by animateFloatAsState(
+        targetValue = progress().coerceIn(0f, 1f),
+        animationSpec = tween(650, easing = FastOutSlowInEasing),
+        label = "progress",
+    )
+    LinearProgressIndicator(progress = { p }, modifier = modifier, color = color, trackColor = trackColor)
+}
+
+/** Importo in centesimi che "scorre" verso il nuovo valore. */
+@Composable
+fun animatedCents(target: Long): Long {
+    var shown by remember { mutableLongStateOf(target) }
+    LaunchedEffect(target) {
+        val from = shown
+        animate(0f, 1f, animationSpec = tween(700, easing = FastOutSlowInEasing)) { v, _ ->
+            shown = from + ((target - from) * v).toLong()
+        }
+        shown = target
+    }
+    return shown
+}

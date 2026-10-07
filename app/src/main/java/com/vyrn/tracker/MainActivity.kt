@@ -8,9 +8,18 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AccountBalanceWallet
+import androidx.compose.material.icons.outlined.BarChart
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.CalendarMonth
@@ -32,11 +41,13 @@ import com.vyrn.tracker.ui.CalendarScreen
 import com.vyrn.tracker.ui.StatsScreen
 import com.vyrn.tracker.ui.finance.FinanceScreen
 import com.vyrn.tracker.ui.routine.RoutineScreen
+import com.vyrn.tracker.ui.theme.ThemeSettings
 import com.vyrn.tracker.ui.theme.VyrnTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        ThemeSettings.load(this)
         enableEdgeToEdge()
         setContent {
             VyrnTheme {
@@ -46,11 +57,11 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private enum class MainTab(val label: String, val icon: ImageVector) {
-    Routine("Routine", Icons.Rounded.Checklist),
-    Calendar("Calendario", Icons.Rounded.CalendarMonth),
-    Finance("Finanza", Icons.Rounded.AccountBalanceWallet),
-    Stats("Statistiche", Icons.Rounded.BarChart),
+private enum class MainTab(val label: String, val icon: ImageVector, val iconSelected: ImageVector) {
+    Routine("Routine", Icons.Outlined.Checklist, Icons.Rounded.Checklist),
+    Calendar("Calendario", Icons.Outlined.CalendarMonth, Icons.Rounded.CalendarMonth),
+    Finance("Finanza", Icons.Outlined.AccountBalanceWallet, Icons.Rounded.AccountBalanceWallet),
+    Stats("Statistiche", Icons.Outlined.BarChart, Icons.Rounded.BarChart),
 }
 
 @Composable
@@ -69,7 +80,7 @@ private fun VyrnApp() {
                     NavigationBarItem(
                         selected = tab == i,
                         onClick = { tab = i },
-                        icon = { Icon(t.icon, contentDescription = t.label) },
+                        icon = { Icon(if (tab == i) t.iconSelected else t.icon, contentDescription = t.label) },
                         label = { Text(t.label) },
                     )
                 }
@@ -77,11 +88,17 @@ private fun VyrnApp() {
         },
     ) { padding ->
         Box(Modifier.padding(padding)) {
-            when (MainTab.entries[tab]) {
-                MainTab.Routine -> RoutineScreen()
-                MainTab.Calendar -> CalendarScreen()
-                MainTab.Finance -> FinanceScreen()
-                MainTab.Stats -> StatsScreen()
+            AnimatedContent(
+                targetState = tab,
+                transitionSpec = { fadeIn(tween(260)) togetherWith fadeOut(tween(140)) },
+                label = "mainTabs",
+            ) { t ->
+                when (MainTab.entries[t]) {
+                    MainTab.Routine -> RoutineScreen()
+                    MainTab.Calendar -> CalendarScreen()
+                    MainTab.Finance -> FinanceScreen()
+                    MainTab.Stats -> StatsScreen()
+                }
             }
         }
     }
