@@ -11,9 +11,20 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ChevronLeft
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -35,6 +46,7 @@ import com.vyrn.tracker.ui.finance.MonthSelector
 import com.vyrn.tracker.ui.theme.ExpenseColor
 import com.vyrn.tracker.ui.theme.IncomeColor
 import java.time.LocalDate
+import java.time.YearMonth
 import kotlin.math.roundToInt
 
 @Composable
@@ -84,6 +96,20 @@ fun StatsScreen(rvm: RoutineViewModel = viewModel(), fvm: FinanceViewModel = vie
     val monthIncome = months.map { m -> val r = monthRange(m); txs.filter { it.type == TxType.INCOME && it.day in r }.sumOf { it.amountCents } / 100f }
     val monthExpense = months.map { m -> val r = monthRange(m); txs.filter { it.type == TxType.EXPENSE && it.day in r }.sumOf { it.amountCents } / 100f }
 
+    // Vista annuale (anno del mese selezionato)
+    val year = month.year
+    val yearMonths = (1..12).map { YearMonth.of(year, it) }
+    val yearIncomeByMonth = yearMonths.map { m -> val r = monthRange(m); txs.filter { it.type == TxType.INCOME && it.day in r }.sumOf { it.amountCents } }
+    val yearExpenseByMonth = yearMonths.map { m -> val r = monthRange(m); txs.filter { it.type == TxType.EXPENSE && it.day in r }.sumOf { it.amountCents } }
+    val yearIncome = yearIncomeByMonth.sum()
+    val yearExpense = yearExpenseByMonth.sum()
+    val yearTop = txs.filter { it.type == TxType.EXPENSE && LocalDate.ofEpochDay(it.day).year == year }
+        .groupBy { it.categoryId }
+        .map { (id, list) -> (id?.let { catMap[it] }) to list.sumOf { it.amountCents } }
+        .sortedByDescending { it.second }
+        .take(5)
+    var scope by rememberSaveable { mutableIntStateOf(0) }
+
     ScreenScaffold("Statistiche") {
         LazyColumn(contentPadding = ScreenPadding, verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item { SectionTitle("Routine") }
@@ -116,57 +142,121 @@ fun StatsScreen(rvm: RoutineViewModel = viewModel(), fvm: FinanceViewModel = vie
             }
 
             item { SectionTitle("Finanza") }
-            item { MonthSelector(month, fvm::previousMonth, fvm::nextMonth) }
-            item {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    StatTile("Entrate", formatMoney(income), Modifier.weight(1f), IncomeColor)
-                    StatTile("Uscite", formatMoney(expense), Modifier.weight(1f), ExpenseColor)
-                    StatTile("Risparmio", formatMoney(income - expense), Modifier.weight(1f))
+            item { ChipRow(listOf(0, 1), scope, { if (it == 0) "Mese" else "Anno" }) { scope = it } }
+            if (scope == 0) {
+                item { MonthSelector(month, fvm::previousMonth, fvm::nextMonth) }
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        StatTile("Entrate", formatMoney(income), Modifier.weight(1f), IncomeColor)
+                        StatTile("Uscite", formatMoney(expense), Modifier.weight(1f), ExpenseColor)
+                        StatTile("Risparmio", formatMoney(income - expense), Modifier.weight(1f))
+                    }
                 }
-            }
-            item {
-                VCard {
-                    Text("Spese per categoria", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.height(12.dp))
-                    if (slices.isEmpty()) {
-                        Text("Nessuna spesa in questo mese.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    } else {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            DonutChart(slices, Modifier.size(140.dp)) {
-                                Text(formatMoney(expense), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                            }
-                            Spacer(Modifier.width(16.dp))
-                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                slices.take(6).forEach { s ->
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Box(Modifier.size(10.dp).clip(CircleShape).background(s.color))
-                                        Spacer(Modifier.width(6.dp))
-                                        Text(
-                                            "${s.label} · ${formatMoney(s.value.toLong())}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            maxLines = 1,
-                                        )
+                item {
+                    VCard {
+                        Text("Spese per categoria", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.height(12.dp))
+                        if (slices.isEmpty()) {
+                            Text("Nessuna spesa in questo mese.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        } else {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                DonutChart(slices, Modifier.size(140.dp)) {
+                                    Text(formatMoney(expense), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                                }
+                                Spacer(Modifier.width(16.dp))
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    slices.take(6).forEach { s ->
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Box(Modifier.size(10.dp).clip(CircleShape).background(s.color))
+                                            Spacer(Modifier.width(6.dp))
+                                            Text(
+                                                "${s.label} · ${formatMoney(s.value.toLong())}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                maxLines = 1,
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
                     }
                 }
-            }
-            item {
-                VCard {
-                    Text("Entrate e uscite (6 mesi)", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.height(12.dp))
-                    BarChart(
-                        series = listOf(BarSeries(IncomeColor, monthIncome), BarSeries(ExpenseColor, monthExpense)),
-                        labels = months.map { fmtMonthShort(it) },
-                    )
-                    Spacer(Modifier.height(6.dp))
+                item {
+                    VCard {
+                        Text("Entrate e uscite (6 mesi)", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.height(12.dp))
+                        BarChart(
+                            series = listOf(BarSeries(IncomeColor, monthIncome), BarSeries(ExpenseColor, monthExpense)),
+                            labels = months.map { fmtMonthShort(it) },
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(10.dp).clip(CircleShape).background(IncomeColor))
+                            Text("  Entrate    ", style = MaterialTheme.typography.labelMedium)
+                            Box(Modifier.size(10.dp).clip(CircleShape).background(ExpenseColor))
+                            Text("  Uscite", style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                }
+
+            } else {
+                item {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(10.dp).clip(CircleShape).background(IncomeColor))
-                        Text("  Entrate    ", style = MaterialTheme.typography.labelMedium)
-                        Box(Modifier.size(10.dp).clip(CircleShape).background(ExpenseColor))
-                        Text("  Uscite", style = MaterialTheme.typography.labelMedium)
+                        IconButton(onClick = { fvm.month.value = month.minusYears(1) }) {
+                            Icon(Icons.Rounded.ChevronLeft, contentDescription = "Anno precedente")
+                        }
+                        Text(
+                            "$year",
+                            modifier = Modifier.weight(1f),
+                            textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        IconButton(onClick = { fvm.month.value = month.plusYears(1) }) {
+                            Icon(Icons.Rounded.ChevronRight, contentDescription = "Anno successivo")
+                        }
+                    }
+                }
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        StatTile("Entrate", formatMoney(yearIncome), Modifier.weight(1f), IncomeColor)
+                        StatTile("Uscite", formatMoney(yearExpense), Modifier.weight(1f), ExpenseColor)
+                        StatTile("Risparmio", formatMoney(yearIncome - yearExpense), Modifier.weight(1f))
+                    }
+                }
+                item {
+                    VCard {
+                        Text("Mese per mese", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.height(12.dp))
+                        BarChart(
+                            series = listOf(
+                                BarSeries(IncomeColor, yearIncomeByMonth.map { it / 100f }),
+                                BarSeries(ExpenseColor, yearExpenseByMonth.map { it / 100f }),
+                            ),
+                            labels = yearMonths.map { fmtMonthShort(it).take(1) },
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        val avg = yearExpense / 12
+                        Text(
+                            "Spesa media mensile: ${formatMoney(avg)}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                item {
+                    VCard {
+                        Text("Categorie più costose dell'anno", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.height(8.dp))
+                        if (yearTop.isEmpty()) {
+                            Text("Nessuna spesa registrata.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        yearTop.forEach { (cat, cents) ->
+                            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text("${cat?.icon ?: "🏷️"} ${cat?.name ?: "Senza categoria"}", Modifier.weight(1f), maxLines = 1)
+                                Text(formatMoney(cents), fontWeight = FontWeight.SemiBold)
+                            }
+                        }
                     }
                 }
             }

@@ -347,6 +347,21 @@ fun HabitCard(
                 )
             }
         }
+        if (h.goalDays > 0) {
+            Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                VProgress(
+                    progress = { streak.toFloat() / h.goalDays },
+                    modifier = Modifier.weight(1f).height(6.dp).clip(CircleShape),
+                    color = color,
+                )
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    if (streak >= h.goalDays) "🏆 Sfida completata" else "Sfida $streak/${h.goalDays}",
+                    style = MaterialTheme.typography.labelMedium,
+                )
+            }
+        }
         if (!log?.note.isNullOrBlank()) {
             Spacer(Modifier.height(8.dp))
             Text("📝 ${log?.note}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -410,6 +425,13 @@ private fun HabitDetailDialog(
                         Text("${done.size}", fontWeight = FontWeight.Bold)
                     }
                 }
+                if (habit.goalDays > 0) {
+                    Text(
+                        if (streak >= habit.goalDays) "🏆 Sfida completata (${habit.goalDays} ${HabitLogic.streakUnit(habit)})"
+                        else "Sfida: $streak/${habit.goalDays} ${HabitLogic.streakUnit(habit)}",
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
                 Text("Ultimi 30 giorni: $last30 su 30 (${last30 * 100 / 30}%)")
                 Text("Ultime 12 settimane", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 HabitHeatmap(done, colorOf(habit.colorIdx), today)
@@ -438,6 +460,7 @@ private fun HabitEditor(initial: Habit, onDismiss: () -> Unit, onSave: (Habit) -
     var mask by remember { mutableStateOf(initial.weekdaysMask) }
     var times by remember { mutableStateOf(initial.timesPerWeek) }
     var reminder by remember { mutableStateOf(initial.reminderMinutes) }
+    var goal by remember { mutableStateOf(if (initial.goalDays > 0) initial.goalDays.toString() else "") }
 
     val targetValue = if (kind != 1) 1.0 else parseDoubleIt(target) ?: 0.0
     FormDialog(
@@ -450,7 +473,7 @@ private fun HabitEditor(initial: Habit, onDismiss: () -> Unit, onSave: (Habit) -
                 initial.copy(
                     name = name.trim(), icon = icon, colorIdx = colorIdx, kind = kind, target = targetValue,
                     unit = if (kind == 1) unit.trim() else "", freqType = if (kind == 2) 0 else freqType, weekdaysMask = mask,
-                    timesPerWeek = times, reminderMinutes = reminder,
+                    timesPerWeek = times, reminderMinutes = reminder, goalDays = goal.toIntOrNull() ?: 0,
                 ),
             )
         },
@@ -486,5 +509,6 @@ private fun HabitEditor(initial: Habit, onDismiss: () -> Unit, onSave: (Habit) -
             }
         }
         ReminderField(reminder) { reminder = it }
+        TextInput("Sfida: serie da raggiungere (vuoto = nessuna)", goal, { if (it.all { c -> c.isDigit() } && it.length <= 4) goal = it })
     }
 }

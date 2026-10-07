@@ -1,5 +1,6 @@
 package com.vyrn.tracker.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -21,6 +22,8 @@ data class Habit(
     val reminderMinutes: Int = -1,
     val archived: Boolean = false,
     val createdDay: Long = 0,
+    /** Sfida: serie da raggiungere (giorni o settimane di fila). 0 = nessuna sfida. */
+    @ColumnInfo(defaultValue = "0") val goalDays: Int = 0,
 )
 
 @Entity(tableName = "habit_logs", primaryKeys = ["habitId", "day"])
