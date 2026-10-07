@@ -7,6 +7,20 @@ import androidx.room.Query
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
+/** Variazione di saldo di un conto dovuta ai movimenti (entrate +, uscite -, trasferimenti -/+). */
+data class AccountDelta(val id: Long, val delta: Long)
+
+/** Totale per mese ("AAAA-MM") e tipo (0 entrate, 1 uscite). */
+data class MonthTotal(val ym: String, val type: Int, val total: Long)
+
+data class CategoryTotal(val categoryId: Long?, val total: Long)
+
+const val ACCOUNT_DELTAS_SQL = "SELECT accountId AS id, SUM(CASE type WHEN 0 THEN amountCents ELSE -amountCents END) AS delta " +
+    "FROM transactions GROUP BY accountId " +
+    "UNION ALL " +
+    "SELECT toAccountId AS id, SUM(amountCents) AS delta FROM transactions " +
+    "WHERE type = 2 AND toAccountId IS NOT NULL GROUP BY toAccountId"
+
 @Dao
 interface HabitDao {
     @Query("SELECT * FROM habits WHERE archived = 0 ORDER BY id")
@@ -158,6 +172,33 @@ interface FinanceDao {
 
     @Query("SELECT * FROM transactions")
     suspend fun getAllTx(): List<FinTx>
+
+    @Query("SELECT * FROM transactions WHERE day BETWEEN :from AND :to ORDER BY day DESC, id DESC")
+    fun observeTxBetween(from: Long, to: Long): Flow<List<FinTx>>
+
+    @Query(ACCOUNT_DELTAS_SQL)
+    fun observeAccountDeltas(): Flow<List<AccountDelta>>
+
+    @Query(ACCOUNT_DELTAS_SQL)
+    suspend fun getAccountDeltas(): List<AccountDelta>
+
+    @Query(
+        "SELECT strftime('%Y-%m', day * 86400, 'unixepoch') AS ym, type, SUM(amountCents) AS total " +
+            "FROM transactions WHERE type IN (0, 1) AND day BETWEEN :from AND :to GROUP BY ym, type",
+    )
+    fun observeMonthTotals(from: Long, to: Long): Flow<List<MonthTotal>>
+
+    @Query(
+        "SELECT categoryId, SUM(amountCents) AS total FROM transactions " +
+            "WHERE type = 1 AND day BETWEEN :from AND :to GROUP BY categoryId ORDER BY total DESC",
+    )
+    fun observeExpenseByCategory(from: Long, to: Long): Flow<List<CategoryTotal>>
+
+    @Query(
+        "SELECT COALESCE(SUM(amountCents), 0) FROM transactions " +
+            "WHERE type = 1 AND categoryId = :categoryId AND day BETWEEN :from AND :to",
+    )
+    suspend fun spentInRange(categoryId: Long, from: Long, to: Long): Long
 
     @Insert
     suspend fun insertTx(tx: FinTx): Long

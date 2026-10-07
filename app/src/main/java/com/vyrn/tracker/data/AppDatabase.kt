@@ -1,11 +1,16 @@
 package com.vyrn.tracker.data
 
 import android.content.Context
+import android.database.sqlite.SQLiteDatabase
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import java.io.File
+
+private const val DB_NAME = "vyrn.db"
+private const val DB_VERSION = 3
 
 /** v2: sfida (serie da raggiungere) sulle abitudini. */
 private val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -14,12 +19,25 @@ private val MIGRATION_1_2 = object : Migration(1, 2) {
     }
 }
 
+/** v3: indici per rendere veloci le query per data, conto, categoria e relazioni. */
+private val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_habit_logs_day` ON `habit_logs` (`day`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_routine_steps_routineId` ON `routine_steps` (`routineId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_routine_step_logs_day` ON `routine_step_logs` (`day`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_tasks_dueDay` ON `tasks` (`dueDay`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_transactions_day` ON `transactions` (`day`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_transactions_accountId` ON `transactions` (`accountId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_transactions_categoryId` ON `transactions` (`categoryId`)")
+    }
+}
+
 @Database(
     entities = [
         Habit::class, HabitLog::class, Routine::class, RoutineStep::class, RoutineStepLog::class, Task::class,
         Account::class, Category::class, FinTx::class, Budget::class, Goal::class, Recurring::class, Debt::class,
     ],
-    version = 2,
+    version = DB_VERSION,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -35,9 +53,31 @@ abstract class AppDatabase : RoomDatabase() {
 
         fun get(context: Context): AppDatabase =
             instance ?: synchronized(this) {
-                instance ?: Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "vyrn.db")
-                    .build()
-                    .also { instance = it }
+                instance ?: run {
+                    val app = context.applicationContext
+                    copyBeforeMigration(app)
+                    Room.databaseBuilder(app, AppDatabase::class.java, DB_NAME)
+                        .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                        .build()
+                }.also { instance = it }
             }
+
+        /**
+         * Rete di sicurezza: se il database sul telefono è di una versione precedente, ne tiene una copia
+         * (`vyrn.db.v<N>.bak`) prima che Room lo aggiorni, così un aggiornamento difettoso non perde i dati.
+         */
+        private fun copyBeforeMigration(context: Context) {
+            try {
+                val file = context.getDatabasePath(DB_NAME)
+                if (!file.exists()) return
+                val version = SQLiteDatabase.openDatabase(file.path, null, SQLiteDatabase.OPEN_READWRITE).use { it.version }
+                if (version in 1 until DB_VERSION) {
+                    // La chiusura dell'ultima connessione svuota il file WAL nel file principale.
+                    file.copyTo(File(file.parentFile, "$DB_NAME.v$version.bak"), overwrite = true)
+                }
+            } catch (_: Exception) {
+                // Nessuna copia possibile: Room procede comunque con la migrazione.
+            }
+        }
     }
 }

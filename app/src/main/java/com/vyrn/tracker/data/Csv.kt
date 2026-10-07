@@ -1,5 +1,6 @@
 package com.vyrn.tracker.data
 
+import androidx.room.withTransaction
 import java.time.LocalDate
 
 /**
@@ -76,7 +77,7 @@ object Csv {
     }
 
     /** Importa i movimenti creando conti/categorie mancanti. Restituisce il numero di righe importate. */
-    suspend fun importText(text: String, db: AppDatabase): Int {
+    suspend fun importText(text: String, db: AppDatabase): Int = db.withTransaction {
         val dao = db.financeDao()
         val accounts = dao.getAccounts().associateBy { it.name.lowercase() }.toMutableMap()
         val categories = dao.getCategories().associateBy { (if (it.isIncome) "i:" else "e:") + it.name.lowercase() }.toMutableMap()
@@ -121,6 +122,6 @@ object Csv {
             }
         }
         dao.insertAllTx(list)
-        return list.size
+        list.size
     }
 }

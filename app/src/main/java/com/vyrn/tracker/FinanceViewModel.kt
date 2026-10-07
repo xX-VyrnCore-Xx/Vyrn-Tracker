@@ -16,23 +16,29 @@ import com.vyrn.tracker.data.FinTx
 import com.vyrn.tracker.data.Goal
 import com.vyrn.tracker.data.Recurring
 import com.vyrn.tracker.data.TxType
-import com.vyrn.tracker.data.computeBalances
+import com.vyrn.tracker.data.CategoryTotal
 import com.vyrn.tracker.data.formatMoney
 import com.vyrn.tracker.data.monthRange
 import com.vyrn.tracker.data.processRecurring
 import com.vyrn.tracker.notify.Reminders
 import com.vyrn.tracker.widget.refreshWidget
+import androidx.room.withTransaction
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.YearMonth
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class FinanceViewModel(app: Application) : AndroidViewModel(app) {
     private val ctx: Context = app.applicationContext
     private val db = AppDatabase.get(ctx)
@@ -43,7 +49,6 @@ class FinanceViewModel(app: Application) : AndroidViewModel(app) {
 
     val accounts: StateFlow<List<Account>> = dao.observeAccounts().state(emptyList())
     val categories: StateFlow<List<Category>> = dao.observeCategories().state(emptyList())
-    val txs: StateFlow<List<FinTx>> = dao.observeTx().state(emptyList())
     val budgets: StateFlow<List<Budget>> = dao.observeBudgets().state(emptyList())
     val goals: StateFlow<List<Goal>> = dao.observeGoals().state(emptyList())
     val recurring: StateFlow<List<Recurring>> = dao.observeRecurring().state(emptyList())
@@ -52,11 +57,38 @@ class FinanceViewModel(app: Application) : AndroidViewModel(app) {
     /** Mese mostrato nelle schermate finanza e statistiche. */
     val month = MutableStateFlow(YearMonth.now())
 
+    /** Saldi calcolati dal database (somma per conto), senza caricare tutti i movimenti in memoria. */
     val balances: StateFlow<Map<Long, Long>> =
-        combine(accounts, txs) { a, t -> computeBalances(a, t) }.state(emptyMap())
+        combine(accounts, dao.observeAccountDeltas()) { a, deltas ->
+            val byAccount = deltas.groupBy { it.id }.mapValues { e -> e.value.sumOf { it.delta } }
+            a.associate { it.id to it.initialCents + (byAccount[it.id] ?: 0L) }
+        }.flowOn(Dispatchers.Default).state(emptyMap())
 
+    /** Solo i movimenti del mese selezionato (query con intervallo di date). */
     val monthTxs: StateFlow<List<FinTx>> =
-        combine(txs, month) { t, m -> val r = monthRange(m); t.filter { it.day in r } }.state(emptyList())
+        month.flatMapLatest { m ->
+            val r = monthRange(m)
+            dao.observeTxBetween(r.first, r.last)
+        }.state(emptyList())
+
+    /** Entrate/uscite per mese ("AAAA-MM" -> coppia) per la finestra usata dalle statistiche. */
+    val monthlyTotals: StateFlow<Map<String, Pair<Long, Long>>> =
+        month.flatMapLatest { m ->
+            val from = minOf(YearMonth.of(m.year, 1), m.minusMonths(5)).atDay(1).toEpochDay()
+            val to = maxOf(YearMonth.of(m.year, 12), m).atEndOfMonth().toEpochDay()
+            dao.observeMonthTotals(from, to)
+        }.map { rows ->
+            rows.groupBy { it.ym }.mapValues { (_, list) ->
+                (list.firstOrNull { it.type == TxType.INCOME }?.total ?: 0L) to
+                    (list.firstOrNull { it.type == TxType.EXPENSE }?.total ?: 0L)
+            }
+        }.state(emptyMap())
+
+    /** Spese dell'anno selezionato per categoria, dalla più alta. */
+    val yearExpenseByCategory: StateFlow<List<CategoryTotal>> =
+        month.flatMapLatest { m ->
+            dao.observeExpenseByCategory(YearMonth.of(m.year, 1).atDay(1).toEpochDay(), YearMonth.of(m.year, 12).atEndOfMonth().toEpochDay())
+        }.state(emptyList())
 
     fun previousMonth() { month.value = month.value.minusMonths(1) }
     fun nextMonth() { month.value = month.value.plusMonths(1) }
@@ -86,9 +118,7 @@ class FinanceViewModel(app: Application) : AndroidViewModel(app) {
         val budget = dao.getBudgets().firstOrNull { it.categoryId == catId } ?: return
         val ym = YearMonth.from(java.time.LocalDate.ofEpochDay(tx.day))
         val range = monthRange(ym)
-        val spent = dao.getAllTx()
-            .filter { it.type == TxType.EXPENSE && it.categoryId == catId && it.day in range }
-            .sumOf { it.amountCents }
+        val spent = dao.spentInRange(catId, range.first, range.last)
         if (spent > budget.limitCents) {
             val name = dao.getCategories().firstOrNull { it.id == catId }?.name ?: "categoria"
             Reminders.notify(
@@ -104,18 +134,22 @@ class FinanceViewModel(app: Application) : AndroidViewModel(app) {
     fun saveAccount(a: Account) = io { if (a.id == 0L) dao.insertAccount(a) else dao.updateAccount(a) }
 
     fun deleteAccount(a: Account) = io {
-        dao.deleteTxForAccount(a.id)
-        dao.deleteRecurringForAccount(a.id)
-        dao.deleteAccount(a.id)
+        db.withTransaction {
+            dao.deleteTxForAccount(a.id)
+            dao.deleteRecurringForAccount(a.id)
+            dao.deleteAccount(a.id)
+        }
     }
 
     fun saveCategory(c: Category) = io { if (c.id == 0L) dao.insertCategory(c) else dao.updateCategory(c) }
 
     fun deleteCategory(c: Category) = io {
-        dao.clearCategoryInTx(c.id)
-        dao.clearCategoryInRecurring(c.id)
-        dao.deleteBudget(c.id)
-        dao.deleteCategory(c.id)
+        db.withTransaction {
+            dao.clearCategoryInTx(c.id)
+            dao.clearCategoryInRecurring(c.id)
+            dao.deleteBudget(c.id)
+            dao.deleteCategory(c.id)
+        }
     }
 
     // ---------- Budget ----------
@@ -136,8 +170,10 @@ class FinanceViewModel(app: Application) : AndroidViewModel(app) {
     // ---------- Ricorrenti ----------
 
     fun saveRecurring(r: Recurring) = io {
-        if (r.id == 0L) dao.insertRecurring(r) else dao.updateRecurring(r)
-        processRecurring(db)
+        db.withTransaction {
+            if (r.id == 0L) dao.insertRecurring(r) else dao.updateRecurring(r)
+            processRecurring(db)
+        }
     }
 
     fun deleteRecurring(r: Recurring) = io { dao.deleteRecurring(r.id) }

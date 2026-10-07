@@ -31,7 +31,6 @@ import androidx.glance.unit.ColorProvider
 import com.vyrn.tracker.MainActivity
 import com.vyrn.tracker.data.AppDatabase
 import com.vyrn.tracker.data.HabitLogic
-import com.vyrn.tracker.data.computeBalances
 import com.vyrn.tracker.data.formatMoney
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -52,8 +51,9 @@ class TrackerWidget : GlanceAppWidget() {
         val habits = db.habitDao().getHabits().filter { HabitLogic.isScheduled(it, today) }
         val logs = db.habitDao().getLogsForDay(today.toEpochDay()).associateBy { it.habitId }
         val done = habits.count { HabitLogic.isDone(it, logs[it.id]) }
-        val balances = computeBalances(db.financeDao().getAccounts(), db.financeDao().getAllTx())
-        return WidgetData(done, habits.size, balances.values.sum())
+        val fin = db.financeDao()
+        val total = fin.getAccounts().sumOf { it.initialCents } + fin.getAccountDeltas().sumOf { it.delta }
+        return WidgetData(done, habits.size, total)
     }
 }
 

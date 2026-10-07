@@ -49,6 +49,10 @@ android {
         compose = true
     }
 
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
+
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
     }
@@ -73,4 +77,6 @@ dependencies {
     implementation(libs.androidx.biometric)
     implementation(libs.androidx.fragment)
     implementation(libs.gson)
+
+    testImplementation(libs.junit)
 }

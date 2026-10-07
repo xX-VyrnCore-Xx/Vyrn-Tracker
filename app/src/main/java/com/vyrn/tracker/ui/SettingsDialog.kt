@@ -45,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.vyrn.tracker.data.AutoBackup
 import com.vyrn.tracker.data.Backup
 import com.vyrn.tracker.lock.AppLock
 import com.vyrn.tracker.ui.theme.AppPalette
@@ -62,6 +63,7 @@ fun SettingsDialog(onDismiss: () -> Unit) {
     var pendingImport by remember { mutableStateOf<Uri?>(null) }
     var bio by remember { mutableStateOf(AppLock.biometricEnabled(ctx)) }
     var updates by remember { mutableStateOf(UpdateChecker.enabled(ctx)) }
+    var pendingAuto by remember { mutableStateOf<java.io.File?>(null) }
 
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) scope.launch {
@@ -132,6 +134,22 @@ fun SettingsDialog(onDismiss: () -> Unit) {
                     Switch(checked = updates, onCheckedChange = { updates = it; UpdateChecker.setEnabled(ctx, it) })
                 }
 
+                Text("Backup automatici", style = MaterialTheme.typography.labelLarge)
+                val autoBackups = remember { AutoBackup.list(ctx).take(3) }
+                if (autoBackups.isEmpty()) {
+                    Text(
+                        "Ogni giorno l'app salva una copia dei dati sul telefono (ultimi 7 giorni).",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                autoBackups.forEach { f ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(f.name.removePrefix("vyrn-auto-").removeSuffix(".json"), Modifier.weight(1f))
+                        TextButton(onClick = { pendingAuto = f }) { Text("Ripristina") }
+                    }
+                }
+
                 Text("Backup completo", style = MaterialTheme.typography.labelLarge)
                 Text(
                     "Salva tutti i dati in un file JSON (anche su Google Drive dal selettore file) e ripristinali su un altro telefono.",
@@ -154,6 +172,24 @@ fun SettingsDialog(onDismiss: () -> Unit) {
     )
 
     if (pinDialog) PinSetupDialog(onDismiss = { pinDialog = false })
+
+    pendingAuto?.let { file ->
+        AlertDialog(
+            onDismissRequest = { pendingAuto = null },
+            title = { Text("Ripristinare questa copia?") },
+            text = { Text("I dati attuali verranno sostituiti da quelli salvati il ${file.name.removePrefix("vyrn-auto-").removeSuffix(".json")}.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    pendingAuto = null
+                    scope.launch {
+                        val ok = Backup.restoreFromText(ctx, file.readText(Charsets.UTF_8))
+                        Toast.makeText(ctx, if (ok) "Copia ripristinata" else "Impossibile ripristinare la copia", Toast.LENGTH_LONG).show()
+                    }
+                }) { Text("Ripristina", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { pendingAuto = null }) { Text("Annulla") } },
+        )
+    }
 
     pendingImport?.let { uri ->
         AlertDialog(
