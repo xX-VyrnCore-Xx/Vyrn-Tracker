@@ -71,6 +71,9 @@ interface RoutineDao {
     @Query("SELECT * FROM routines")
     suspend fun getRoutines(): List<Routine>
 
+    @Query("SELECT * FROM routine_steps WHERE routineId = :routineId ORDER BY position")
+    suspend fun getSteps(routineId: Long): List<RoutineStep>
+
     @Insert
     suspend fun insertRoutine(routine: Routine): Long
 
@@ -199,6 +202,9 @@ interface FinanceDao {
             "WHERE type = 1 AND categoryId = :categoryId AND day BETWEEN :from AND :to",
     )
     suspend fun spentInRange(categoryId: Long, from: Long, to: Long): Long
+
+    @Query("SELECT receipt FROM transactions WHERE receipt IS NOT NULL")
+    suspend fun receiptNames(): List<String>
 
     @Insert
     suspend fun insertTx(tx: FinTx): Long

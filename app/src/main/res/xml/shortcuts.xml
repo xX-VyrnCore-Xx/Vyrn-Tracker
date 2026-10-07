@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="new_tx"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_wallet"
+        android:shortcutShortLabel="@string/shortcut_new_tx_short"
+        android:shortcutLongLabel="@string/shortcut_new_tx_long">
+        <intent
+            android:action="com.vyrn.tracker.action.NEW_TX"
+            android:targetClass="com.vyrn.tracker.MainActivity"
+            android:targetPackage="com.vyrn.tracker" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="new_task"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_task"
+        android:shortcutShortLabel="@string/shortcut_new_task_short"
+        android:shortcutLongLabel="@string/shortcut_new_task_long">
+        <intent
+            android:action="com.vyrn.tracker.action.NEW_TASK"
+            android:targetClass="com.vyrn.tracker.MainActivity"
+            android:targetPackage="com.vyrn.tracker" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="focus"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_timer"
+        android:shortcutShortLabel="@string/shortcut_focus_short"
+        android:shortcutLongLabel="@string/shortcut_focus_long">
+        <intent
+            android:action="com.vyrn.tracker.action.FOCUS"
+            android:targetClass="com.vyrn.tracker.MainActivity"
+            android:targetPackage="com.vyrn.tracker" />
+    </shortcut>
+</shortcuts>

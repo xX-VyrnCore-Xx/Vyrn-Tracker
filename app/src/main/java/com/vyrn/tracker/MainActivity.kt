@@ -1,6 +1,7 @@
 package com.vyrn.tracker
 
 import android.Manifest
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
@@ -59,12 +60,19 @@ class MainActivity : FragmentActivity() {
         super.onCreate(savedInstanceState)
         ThemeSettings.load(this)
         AppLock.init(this)
+        if (savedInstanceState == null) DeepLink.handle(intent?.action)
         enableEdgeToEdge()
         setContent {
             VyrnTheme {
                 if (AppLock.locked) LockScreen() else VyrnApp()
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        DeepLink.handle(intent.action)
     }
 
     override fun onStart() {
@@ -91,6 +99,14 @@ private enum class MainTab(val label: String, val icon: ImageVector, val iconSel
 @Composable
 private fun VyrnApp() {
     var tab by rememberSaveable { mutableIntStateOf(0) }
+
+    val deepAction = DeepLink.action
+    LaunchedEffect(deepAction) {
+        when (deepAction) {
+            DeepLink.NEW_TX -> tab = 2
+            DeepLink.NEW_TASK, DeepLink.FOCUS -> tab = 0
+        }
+    }
 
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     LaunchedEffect(Unit) {

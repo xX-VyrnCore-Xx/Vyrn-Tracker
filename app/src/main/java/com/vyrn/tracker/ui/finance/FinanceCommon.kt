@@ -1,6 +1,26 @@
 package com.vyrn.tracker.ui.finance
 
 import androidx.compose.foundation.layout.Arrangement
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import com.vyrn.tracker.data.ReceiptStore
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.draw.clip
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.produceState
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Image
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Column
@@ -85,12 +105,12 @@ fun TxRow(
     val (title, sub, amountText, amountColor) = when (tx.type) {
         TxType.INCOME -> Quad(
             tx.note.ifBlank { cat?.name ?: "Entrata" },
-            listOfNotNull(cat?.name, acc?.name, fmtDay(tx.day)).joinToString(" · "),
+            listOfNotNull(cat?.name, acc?.name, fmtDay(tx.day), if (tx.receipt != null) "📎" else null).joinToString(" · "),
             "+" + formatMoney(tx.amountCents), IncomeColor,
         )
         TxType.EXPENSE -> Quad(
             tx.note.ifBlank { cat?.name ?: "Spesa" },
-            listOfNotNull(cat?.name, acc?.name, fmtDay(tx.day)).joinToString(" · "),
+            listOfNotNull(cat?.name, acc?.name, fmtDay(tx.day), if (tx.receipt != null) "📎" else null).joinToString(" · "),
             "-" + formatMoney(tx.amountCents), ExpenseColor,
         )
         else -> Quad(
@@ -135,6 +155,14 @@ fun TxEditor(
     var categoryId by remember { mutableStateOf(initial.categoryId) }
     var day by remember { mutableStateOf(initial.day) }
     var note by remember { mutableStateOf(initial.note) }
+    var receipt by remember { mutableStateOf(initial.receipt) }
+    val ctx = LocalContext.current
+    // Foto aggiunte durante questa modifica: se si annulla vanno eliminate.
+    val added = remember { mutableListOf<String>() }
+    val cancel = {
+        added.forEach { ReceiptStore.delete(ctx, it) }
+        onDismiss()
+    }
 
     val cents = parseCents(amount) ?: 0L
     val cats = categories.filter { it.isIncome == (type == TxType.INCOME) }
@@ -143,16 +171,24 @@ fun TxEditor(
 
     FormDialog(
         title = if (initial.id == 0L) "Nuovo movimento" else "Modifica movimento",
-        onDismiss = onDismiss,
+        onDismiss = cancel,
         confirmEnabled = valid,
-        onDelete = onDelete,
+        onDelete = onDelete?.let { del ->
+            {
+                added.forEach { ReceiptStore.delete(ctx, it) }
+                del()
+            }
+        },
         onConfirm = {
+            // Elimina le foto scartate: quelle aggiunte e poi sostituite, e quella originale se cambiata.
+            added.filter { it != receipt }.forEach { ReceiptStore.delete(ctx, it) }
+            initial.receipt?.let { if (it != receipt) ReceiptStore.delete(ctx, it) }
             onSave(
                 initial.copy(
                     type = type, amountCents = cents, accountId = accountId,
                     toAccountId = if (type == TxType.TRANSFER) toAccountId else null,
                     categoryId = if (type == TxType.TRANSFER) null else categoryId,
-                    day = day, note = note.trim(),
+                    day = day, note = note.trim(), receipt = receipt,
                 ),
             )
         },
@@ -188,5 +224,68 @@ fun TxEditor(
         }
         DatePickerField("Data", day, { if (it != null) day = it })
         TextInput("Nota", note, { note = it })
+        ReceiptSection(receipt) { new ->
+            if (new != null && new != initial.receipt) added.add(new)
+            receipt = new
+        }
+    }
+}
+
+@Composable
+private fun ReceiptSection(receipt: String?, onChange: (String?) -> Unit) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var viewing by remember { mutableStateOf(false) }
+
+    val gallery = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) scope.launch { ReceiptStore.saveFrom(ctx, uri)?.let { onChange(it) } }
+    }
+    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
+        if (ok) {
+            scope.launch {
+                ReceiptStore.saveFrom(ctx, ReceiptStore.cameraUri(ctx))?.let { onChange(it) }
+                ReceiptStore.cameraTarget(ctx).delete()
+            }
+        }
+    }
+    val bitmap by produceState<ImageBitmap?>(null, receipt) {
+        value = receipt?.let { name -> withContext(Dispatchers.IO) { ReceiptStore.loadBitmap(ctx, name, 900)?.asImageBitmap() } }
+    }
+    val image = bitmap
+
+    Text("Ricevuta", style = MaterialTheme.typography.labelLarge)
+    if (receipt != null && image != null) {
+        Image(
+            bitmap = image,
+            contentDescription = "Foto della ricevuta",
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxWidth().height(140.dp).clip(MaterialTheme.shapes.medium).clickable { viewing = true },
+        )
+        Row {
+            TextButton(onClick = { viewing = true }) { Text("Vedi") }
+            TextButton(onClick = { onChange(null) }) { Text("Rimuovi", color = MaterialTheme.colorScheme.error) }
+        }
+    } else {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = { camera.launch(ReceiptStore.cameraUri(ctx)) }, modifier = Modifier.weight(1f)) { Text("📷 Scatta") }
+            OutlinedButton(
+                onClick = { gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                modifier = Modifier.weight(1f),
+            ) { Text("🖼️ Galleria") }
+        }
+    }
+    if (viewing && image != null) {
+        AlertDialog(
+            onDismissRequest = { viewing = false },
+            text = {
+                Image(
+                    bitmap = image,
+                    contentDescription = "Foto della ricevuta",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
+            confirmButton = { TextButton(onClick = { viewing = false }) { Text("Chiudi") } },
+        )
     }
 }

@@ -21,6 +21,7 @@ import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -32,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.vyrn.tracker.DeepLink
 import com.vyrn.tracker.FinanceViewModel
 import com.vyrn.tracker.data.FinTx
 import com.vyrn.tracker.data.TxType
@@ -46,6 +48,18 @@ fun FinanceScreen(vm: FinanceViewModel = viewModel()) {
     val accounts by vm.accounts.collectAsState()
     val categories by vm.categories.collectAsState()
     var txEditor by remember { mutableStateOf<FinTx?>(null) }
+    LaunchedEffect(DeepLink.action, accounts.isNotEmpty()) {
+        if (DeepLink.action == DeepLink.NEW_TX && accounts.isNotEmpty()) {
+            sub = 0
+            txEditor = FinTx(
+                accountId = accounts.first().id,
+                type = TxType.EXPENSE,
+                amountCents = 0,
+                day = LocalDate.now().toEpochDay(),
+            )
+            DeepLink.consume()
+        }
+    }
 
     ScreenScaffold("Finanza") {
         Box(Modifier.fillMaxSize()) {

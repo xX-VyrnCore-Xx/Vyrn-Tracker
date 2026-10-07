@@ -10,7 +10,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import java.io.File
 
 private const val DB_NAME = "vyrn.db"
-private const val DB_VERSION = 3
+private const val DB_VERSION = 4
 
 /** v2: sfida (serie da raggiungere) sulle abitudini. */
 private val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -29,6 +29,13 @@ private val MIGRATION_2_3 = object : Migration(2, 3) {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_transactions_day` ON `transactions` (`day`)")
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_transactions_accountId` ON `transactions` (`accountId`)")
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_transactions_categoryId` ON `transactions` (`categoryId`)")
+    }
+}
+
+/** v4: foto della ricevuta sui movimenti. */
+private val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE transactions ADD COLUMN receipt TEXT")
     }
 }
 
@@ -57,7 +64,7 @@ abstract class AppDatabase : RoomDatabase() {
                     val app = context.applicationContext
                     copyBeforeMigration(app)
                     Room.databaseBuilder(app, AppDatabase::class.java, DB_NAME)
-                        .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                        .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                         .build()
                 }.also { instance = it }
             }
