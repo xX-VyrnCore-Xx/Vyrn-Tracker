@@ -34,6 +34,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.LocalFireDepartment
@@ -84,6 +85,7 @@ import com.vyrn.tracker.ui.TextInput
 import com.vyrn.tracker.ui.VCard
 import com.vyrn.tracker.ui.WeekdayChips
 import com.vyrn.tracker.ui.colorOf
+import com.vyrn.tracker.ui.theme.ExpenseColor
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.YearMonth
@@ -305,7 +307,7 @@ fun HabitCard(
                     }
                 }
             }
-            if (h.kind == 0) {
+            if (h.kind != 1) {
                 Box(
                     Modifier.size(42.dp).scale(checkScale).clip(CircleShape)
                         .background(checkColor)
@@ -318,6 +320,9 @@ fun HabitCard(
                         tint = androidx.compose.ui.graphics.Color.White,
                         modifier = Modifier.scale(iconScale).alpha(iconScale.coerceIn(0f, 1f)),
                     )
+                    if (h.kind == 2 && !done) {
+                        Icon(Icons.Rounded.Close, contentDescription = "Ricaduta", tint = ExpenseColor)
+                    }
                 }
             } else {
                 val step = HabitLogic.step(h)
@@ -397,17 +402,17 @@ private fun HabitEditor(initial: Habit, onDismiss: () -> Unit, onSave: (Habit) -
     var times by remember { mutableStateOf(initial.timesPerWeek) }
     var reminder by remember { mutableStateOf(initial.reminderMinutes) }
 
-    val targetValue = if (kind == 0) 1.0 else parseDoubleIt(target) ?: 0.0
+    val targetValue = if (kind != 1) 1.0 else parseDoubleIt(target) ?: 0.0
     FormDialog(
         title = if (initial.id == 0L) "Nuova abitudine" else "Modifica abitudine",
         onDismiss = onDismiss,
-        confirmEnabled = name.isNotBlank() && targetValue > 0 && (freqType != 1 || mask != 0),
+        confirmEnabled = name.isNotBlank() && targetValue > 0 && (kind == 2 || freqType != 1 || mask != 0),
         onDelete = onDelete,
         onConfirm = {
             onSave(
                 initial.copy(
                     name = name.trim(), icon = icon, colorIdx = colorIdx, kind = kind, target = targetValue,
-                    unit = if (kind == 1) unit.trim() else "", freqType = freqType, weekdaysMask = mask,
+                    unit = if (kind == 1) unit.trim() else "", freqType = if (kind == 2) 0 else freqType, weekdaysMask = mask,
                     timesPerWeek = times, reminderMinutes = reminder,
                 ),
             )
@@ -417,22 +422,30 @@ private fun HabitEditor(initial: Habit, onDismiss: () -> Unit, onSave: (Habit) -
         EmojiPicker(HabitEmojis, icon) { icon = it }
         ColorPicker(colorIdx) { colorIdx = it }
         Text("Tipo", style = MaterialTheme.typography.labelLarge)
-        ChipRow(listOf(0, 1), kind, { if (it == 0) "Sì / No" else "Quantità" }) { kind = it }
+        ChipRow(listOf(0, 1, 2), kind, { listOf("Sì / No", "Quantità", "Da evitare")[it] }) { kind = it }
         if (kind == 1) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 DecimalField("Obiettivo", target, { target = it }, Modifier.weight(1f))
                 TextInput("Unità", unit, { unit = it }, Modifier.weight(1f))
             }
         }
-        Text("Frequenza", style = MaterialTheme.typography.labelLarge)
-        ChipRow(listOf(0, 1, 2), freqType, { listOf("Ogni giorno", "Giorni", "Settimana")[it] }) { freqType = it }
-        if (freqType == 1) WeekdayChips(mask) { mask = it }
-        if (freqType == 2) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Volte a settimana", Modifier.weight(1f))
-                IconButton(onClick = { times = (times - 1).coerceAtLeast(1) }) { Icon(Icons.Rounded.Remove, null) }
-                Text(times.toString(), fontWeight = FontWeight.Bold)
-                IconButton(onClick = { times = (times + 1).coerceAtMost(7) }) { Icon(Icons.Rounded.Add, null) }
+        if (kind == 2) {
+            Text(
+                "Conta i giorni liberi: tocca la spunta per segnare una ricaduta.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            Text("Frequenza", style = MaterialTheme.typography.labelLarge)
+            ChipRow(listOf(0, 1, 2), freqType, { listOf("Ogni giorno", "Giorni", "Settimana")[it] }) { freqType = it }
+            if (freqType == 1) WeekdayChips(mask) { mask = it }
+            if (freqType == 2) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Volte a settimana", Modifier.weight(1f))
+                    IconButton(onClick = { times = (times - 1).coerceAtLeast(1) }) { Icon(Icons.Rounded.Remove, null) }
+                    Text(times.toString(), fontWeight = FontWeight.Bold)
+                    IconButton(onClick = { times = (times + 1).coerceAtMost(7) }) { Icon(Icons.Rounded.Add, null) }
+                }
             }
         }
         ReminderField(reminder) { reminder = it }

@@ -3,7 +3,6 @@ package com.vyrn.tracker
 import android.Manifest
 import android.os.Build
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -37,6 +36,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.fragment.app.FragmentActivity
+import com.vyrn.tracker.lock.AppLock
+import com.vyrn.tracker.ui.LockScreen
 import com.vyrn.tracker.ui.CalendarScreen
 import com.vyrn.tracker.ui.StatsScreen
 import com.vyrn.tracker.ui.finance.FinanceScreen
@@ -44,16 +46,27 @@ import com.vyrn.tracker.ui.routine.RoutineScreen
 import com.vyrn.tracker.ui.theme.ThemeSettings
 import com.vyrn.tracker.ui.theme.VyrnTheme
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         ThemeSettings.load(this)
+        AppLock.init(this)
         enableEdgeToEdge()
         setContent {
             VyrnTheme {
-                VyrnApp()
+                if (AppLock.locked) LockScreen() else VyrnApp()
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        AppLock.onForeground()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        AppLock.onBackground()
     }
 }
 

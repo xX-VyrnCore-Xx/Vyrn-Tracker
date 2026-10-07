@@ -10,6 +10,9 @@ coreKtx = "1.15.0"
 glance = "1.1.1"
 material = "1.12.0"
 coroutines = "1.9.0"
+biometric = "1.1.0"
+gson = "2.11.0"
+fragment = "1.8.5"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
@@ -26,6 +29,9 @@ androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
 androidx-glance-appwidget = { module = "androidx.glance:glance-appwidget", version.ref = "glance" }
 google-material = { module = "com.google.android.material:material", version.ref = "material" }
+androidx-biometric = { module = "androidx.biometric:biometric", version.ref = "biometric" }
+androidx-fragment = { module = "androidx.fragment:fragment", version.ref = "fragment" }
+gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 
 [plugins]

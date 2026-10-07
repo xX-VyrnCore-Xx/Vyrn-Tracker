@@ -64,6 +64,7 @@ class TrackerWidgetReceiver : GlanceAppWidgetReceiver() {
 suspend fun refreshWidget(context: Context) {
     try {
         TrackerWidget().updateAll(context)
+        HabitsWidget().updateAll(context)
     } catch (_: Exception) {
         // Il widget è opzionale: ignora errori di aggiornamento.
     }

@@ -72,8 +72,11 @@ class RoutineViewModel(app: Application) : AndroidViewModel(app) {
         else hd.upsertLog(HabitLog(h.id, day, value.coerceAtLeast(0.0), note))
     }
 
-    fun toggleHabit(h: Habit, day: Long, currentlyDone: Boolean) =
-        setHabitValue(h, day, if (currentlyDone) 0.0 else h.target)
+    fun toggleHabit(h: Habit, day: Long, currentlyDone: Boolean) {
+        // Abitudine "da evitare": il tocco segna o annulla una ricaduta.
+        if (h.kind == 2) setHabitValue(h, day, if (currentlyDone) 1.0 else 0.0)
+        else setHabitValue(h, day, if (currentlyDone) 0.0 else h.target)
+    }
 
     fun setHabitNote(h: Habit, day: Long, note: String) = io {
         val existing = hd.getLog(h.id, day)
