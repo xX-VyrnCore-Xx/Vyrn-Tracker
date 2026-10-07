@@ -72,7 +72,13 @@ fun AddButton(text: String, onClick: () -> Unit) {
 }
 
 @Composable
-fun TxRow(tx: FinTx, accounts: Map<Long, Account>, categories: Map<Long, Category>, onClick: () -> Unit) {
+fun TxRow(
+    tx: FinTx,
+    accounts: Map<Long, Account>,
+    categories: Map<Long, Category>,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
     val cat = tx.categoryId?.let { categories[it] }
     val acc = accounts[tx.accountId]
     val to = tx.toAccountId?.let { accounts[it] }
@@ -93,7 +99,7 @@ fun TxRow(tx: FinTx, accounts: Map<Long, Account>, categories: Map<Long, Categor
             formatMoney(tx.amountCents), MaterialTheme.colorScheme.onSurface,
         )
     }
-    VCard(onClick = onClick) {
+    VCard(modifier = modifier, onClick = onClick) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             EmojiBadge(
                 if (tx.type == TxType.TRANSFER) "🔁" else cat?.icon ?: if (tx.type == TxType.INCOME) "💰" else "💸",

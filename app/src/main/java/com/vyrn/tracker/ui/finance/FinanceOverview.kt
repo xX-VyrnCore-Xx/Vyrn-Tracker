@@ -17,13 +17,21 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,7 +43,9 @@ import com.vyrn.tracker.FinanceViewModel
 import com.vyrn.tracker.data.FinTx
 import com.vyrn.tracker.data.TxType
 import com.vyrn.tracker.data.formatMoney
+import com.vyrn.tracker.ui.ChipRow
 import com.vyrn.tracker.ui.DonutChart
+import com.vyrn.tracker.ui.animatedCents
 import com.vyrn.tracker.ui.EmojiBadge
 import com.vyrn.tracker.ui.EmptyState
 import com.vyrn.tracker.ui.ScreenPadding
@@ -45,6 +55,7 @@ import com.vyrn.tracker.ui.VCard
 import com.vyrn.tracker.ui.colorOf
 import com.vyrn.tracker.ui.theme.ExpenseColor
 import com.vyrn.tracker.ui.theme.IncomeColor
+import com.vyrn.tracker.ui.theme.LocalGradient
 import kotlin.math.roundToInt
 
 @Composable
@@ -67,11 +78,11 @@ fun FinanceOverview(vm: FinanceViewModel, onEditTx: (FinTx) -> Unit, onSeeAll: (
             Column(
                 Modifier.fillMaxWidth()
                     .clip(RoundedCornerShape(28.dp))
-                    .background(Brush.linearGradient(listOf(Color(0xFF5B3FD6), Color(0xFF8B5CF6))))
+                    .background(Brush.linearGradient(LocalGradient.current))
                     .padding(20.dp),
             ) {
                 Text("Saldo totale", color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.labelLarge)
-                Text(formatMoney(total), color = Color.White, style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
+                Text(formatMoney(animatedCents(total)), color = Color.White, style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(14.dp))
                 Row(Modifier.fillMaxWidth()) {
                     Column(Modifier.weight(1f)) {
@@ -145,7 +156,7 @@ fun FinanceOverview(vm: FinanceViewModel, onEditTx: (FinTx) -> Unit, onSeeAll: (
         if (monthTxs.isEmpty()) {
             item { EmptyState("💸", "Nessun movimento in questo mese.\nTocca + per aggiungerne uno.") }
         }
-        items(monthTxs.take(5), key = { it.id }) { tx -> TxRow(tx, accMap, catMap) { onEditTx(tx) } }
+        items(monthTxs.take(5), key = { it.id }) { tx -> TxRow(tx, accMap, catMap, Modifier.animateItem()) { onEditTx(tx) } }
     }
 }
 
@@ -157,12 +168,39 @@ fun FinanceTransactions(vm: FinanceViewModel, onEditTx: (FinTx) -> Unit) {
     val monthTxs by vm.monthTxs.collectAsState()
     val accMap = remember(accounts) { accounts.associateBy { it.id } }
     val catMap = remember(categories) { categories.associateBy { it.id } }
-    val grouped = remember(monthTxs) { monthTxs.groupBy { it.day } }
+    var query by rememberSaveable { mutableStateOf("") }
+    var typeFilter by rememberSaveable { mutableIntStateOf(-1) }
+
+    val filtered = remember(monthTxs, query, typeFilter, catMap) {
+        val q = query.trim().lowercase()
+        monthTxs.filter { tx ->
+            (typeFilter < 0 || tx.type == typeFilter) &&
+                (q.isEmpty() || tx.note.lowercase().contains(q) ||
+                    (tx.categoryId?.let { catMap[it]?.name?.lowercase()?.contains(q) } ?: false))
+        }
+    }
+    val grouped = remember(filtered) { filtered.groupBy { it.day } }
 
     LazyColumn(contentPadding = ScreenPadding, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item { MonthSelector(month, vm::previousMonth, vm::nextMonth) }
-        if (monthTxs.isEmpty()) {
-            item { EmptyState("📭", "Nessun movimento in questo mese.") }
+        item {
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                label = { Text("Cerca nota o categoria") },
+                leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        item {
+            ChipRow(
+                listOf(-1, TxType.INCOME, TxType.EXPENSE, TxType.TRANSFER), typeFilter,
+                { when (it) { -1 -> "Tutti"; TxType.INCOME -> "Entrate"; TxType.EXPENSE -> "Uscite"; else -> "Trasf." } },
+            ) { typeFilter = it }
+        }
+        if (filtered.isEmpty()) {
+            item { EmptyState("📭", if (monthTxs.isEmpty()) "Nessun movimento in questo mese." else "Nessun risultato per i filtri attuali.") }
         }
         grouped.forEach { (day, list) ->
             item(key = "h$day") {
@@ -182,7 +220,7 @@ fun FinanceTransactions(vm: FinanceViewModel, onEditTx: (FinTx) -> Unit) {
                     )
                 }
             }
-            items(list, key = { it.id }) { tx -> TxRow(tx, accMap, catMap) { onEditTx(tx) } }
+            items(list, key = { it.id }) { tx -> TxRow(tx, accMap, catMap, Modifier.animateItem()) { onEditTx(tx) } }
         }
     }
 }

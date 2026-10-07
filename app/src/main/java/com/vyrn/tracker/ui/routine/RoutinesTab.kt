@@ -22,7 +22,6 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -44,6 +43,7 @@ import com.vyrn.tracker.data.Routine
 import com.vyrn.tracker.data.RoutineStep
 import com.vyrn.tracker.data.isWeekdayOn
 import com.vyrn.tracker.data.weekdaysText
+import com.vyrn.tracker.ui.VProgress
 import com.vyrn.tracker.ui.ChipRow
 import com.vyrn.tracker.ui.ColorPicker
 import com.vyrn.tracker.ui.EmojiBadge
@@ -83,7 +83,7 @@ fun RoutinesTab(vm: RoutineViewModel) {
                 val done = rSteps.count { it.id in doneToday }
                 val color = colorOf(r.colorIdx)
                 val scheduled = isWeekdayOn(r.weekdaysMask, todayDate)
-                VCard {
+                VCard(modifier = Modifier.animateItem()) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         EmojiBadge(r.icon, color)
                         Spacer(Modifier.width(12.dp))
@@ -99,7 +99,7 @@ fun RoutinesTab(vm: RoutineViewModel) {
                     }
                     if (rSteps.isNotEmpty()) {
                         Spacer(Modifier.height(8.dp))
-                        LinearProgressIndicator(
+                        VProgress(
                             progress = { done.toFloat() / rSteps.size },
                             modifier = Modifier.fillMaxWidth().height(8.dp).clip(CircleShape),
                             color = color,

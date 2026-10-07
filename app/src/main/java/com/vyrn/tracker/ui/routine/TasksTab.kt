@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
@@ -19,6 +21,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.vyrn.tracker.RoutineViewModel
@@ -63,6 +67,7 @@ fun TasksTab(vm: RoutineViewModel) {
     val tasks by vm.tasks.collectAsState()
     var showDone by rememberSaveable { mutableStateOf(false) }
     var editor by remember { mutableStateOf<Task?>(null) }
+    var quick by remember { mutableStateOf("") }
     val today = LocalDate.now().toEpochDay()
     val list = tasks.filter { it.done == showDone }
         .sortedWith(compareBy<Task>({ if (it.dueDay < 0) Long.MAX_VALUE else it.dueDay }, { -it.priority }))
@@ -71,6 +76,28 @@ fun TasksTab(vm: RoutineViewModel) {
         LazyColumn(contentPadding = ScreenPadding, verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item {
                 ChipRow(listOf(false, true), showDone, { if (it) "Completati" else "Da fare" }) { showDone = it }
+            }
+            item {
+                if (!showDone) {
+                    val submit = {
+                        if (quick.isNotBlank()) {
+                            vm.saveTask(Task(title = quick.trim()))
+                            quick = ""
+                        }
+                    }
+                    OutlinedTextField(
+                        value = quick,
+                        onValueChange = { quick = it },
+                        label = { Text("Aggiungi un task al volo") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { submit() }),
+                        trailingIcon = {
+                            IconButton(onClick = { submit() }) { Icon(Icons.Rounded.Add, contentDescription = "Aggiungi") }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
             if (list.isEmpty()) {
                 item {
@@ -81,7 +108,7 @@ fun TasksTab(vm: RoutineViewModel) {
                 }
             }
             items(list, key = { it.id }) { t ->
-                VCard(onClick = { editor = t }) {
+                VCard(modifier = Modifier.animateItem(), onClick = { editor = t }) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(checked = t.done, onCheckedChange = { vm.toggleTask(t) })
                         Column(Modifier.weight(1f)) {

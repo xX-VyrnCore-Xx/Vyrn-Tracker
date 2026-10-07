@@ -1,5 +1,11 @@
 package com.vyrn.tracker.ui.routine
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,15 +28,24 @@ fun RoutineScreen(vm: RoutineViewModel = viewModel()) {
     ScreenScaffold("Routine") {
         Column(Modifier.fillMaxSize()) {
             TabRow(selectedTabIndex = sub) {
-                listOf("Abitudini", "Routine", "Task").forEachIndexed { i, label ->
+                listOf("Abitudini", "Routine", "Task", "Focus").forEachIndexed { i, label ->
                     Tab(selected = sub == i, onClick = { sub = i }, text = { Text(label) })
                 }
             }
             Box(Modifier.weight(1f)) {
-                when (sub) {
-                    0 -> HabitsTab(vm)
-                    1 -> RoutinesTab(vm)
-                    else -> TasksTab(vm)
+                AnimatedContent(
+                    targetState = sub,
+                    transitionSpec = {
+                        (fadeIn(tween(240)) + slideInVertically(tween(240)) { it / 20 }) togetherWith fadeOut(tween(120))
+                    },
+                    label = "routineTabs",
+                ) { s ->
+                    when (s) {
+                        0 -> HabitsTab(vm)
+                        1 -> RoutinesTab(vm)
+                        2 -> TasksTab(vm)
+                        else -> FocusTab()
+                    }
                 }
             }
         }

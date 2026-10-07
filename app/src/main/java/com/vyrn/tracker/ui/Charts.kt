@@ -1,5 +1,8 @@
 package com.vyrn.tracker.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,6 +13,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -29,6 +34,11 @@ data class BarSeries(val color: Color, val values: List<Float>)
 fun DonutChart(slices: List<Slice>, modifier: Modifier = Modifier, center: @Composable () -> Unit = {}) {
     val total = slices.sumOf { it.value.toDouble() }.toFloat()
     val track = MaterialTheme.colorScheme.surfaceVariant
+    val reveal = remember { Animatable(0f) }
+    LaunchedEffect(slices) {
+        reveal.snapTo(0f)
+        reveal.animateTo(1f, tween(900, easing = FastOutSlowInEasing))
+    }
     Box(modifier, contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
             val strokeWidth = size.minDimension * 0.17f
@@ -40,7 +50,7 @@ fun DonutChart(slices: List<Slice>, modifier: Modifier = Modifier, center: @Comp
             } else {
                 var start = -90f
                 slices.forEach { s ->
-                    val sweep = s.value / total * 360f
+                    val sweep = s.value / total * 360f * reveal.value
                     drawArc(s.color, start, (sweep - 1.5f).coerceAtLeast(0.5f), false, topLeft, arcSize, style = Stroke(strokeWidth))
                     start += sweep
                 }
@@ -60,6 +70,11 @@ fun BarChart(
 ) {
     val maxV = (maxValue ?: series.flatMap { it.values }.maxOrNull() ?: 0f).coerceAtLeast(0.001f)
     val track = MaterialTheme.colorScheme.surfaceVariant
+    val grow = remember { Animatable(0f) }
+    LaunchedEffect(series) {
+        grow.snapTo(0f)
+        grow.animateTo(1f, tween(800, easing = FastOutSlowInEasing))
+    }
     Column(modifier) {
         Canvas(Modifier.fillMaxWidth().height(height)) {
             val n = labels.size
@@ -69,7 +84,7 @@ fun BarChart(
             for (i in 0 until n) {
                 series.forEachIndexed { si, s ->
                     val v = s.values.getOrElse(i) { 0f }.coerceAtLeast(0f)
-                    val h = (v / maxV * size.height).coerceAtLeast(3f)
+                    val h = (v / maxV * size.height * grow.value).coerceAtLeast(3f)
                     val x = i * groupW + groupW * 0.2f + si * barW
                     drawRoundRect(
                         color = if (v <= 0f) track else s.color,

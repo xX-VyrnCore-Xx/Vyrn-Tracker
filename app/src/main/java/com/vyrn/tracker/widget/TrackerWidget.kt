@@ -1,12 +1,14 @@
 package com.vyrn.tracker.widget
 
 import android.content.Context
+import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
+import androidx.glance.LocalContext
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
@@ -69,6 +71,7 @@ suspend fun refreshWidget(context: Context) {
 
 @Composable
 internal fun WidgetContent(d: WidgetData) {
+    val context = LocalContext.current
     val textColor = ColorProvider(Color(0xFFF1ECFA))
     val accent = ColorProvider(Color(0xFFB9A8FF))
     Column(
@@ -77,7 +80,7 @@ internal fun WidgetContent(d: WidgetData) {
             .background(ColorProvider(Color(0xFF1E1A27)))
             .cornerRadius(22.dp)
             .padding(14.dp)
-            .clickable(actionStartActivity<MainActivity>()),
+            .clickable(actionStartActivity(Intent(context, MainActivity::class.java))),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text("Vyrn Tracker", style = TextStyle(color = accent, fontSize = 12.sp, fontWeight = FontWeight.Medium))

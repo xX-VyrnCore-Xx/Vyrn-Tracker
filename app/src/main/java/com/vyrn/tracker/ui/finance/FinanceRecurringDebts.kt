@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -36,6 +35,7 @@ import com.vyrn.tracker.data.fmtDay
 import com.vyrn.tracker.data.formatMoney
 import com.vyrn.tracker.data.parseCents
 import com.vyrn.tracker.data.periodText
+import com.vyrn.tracker.ui.VProgress
 import com.vyrn.tracker.ui.ChipRow
 import com.vyrn.tracker.ui.DatePickerField
 import com.vyrn.tracker.ui.DecimalField
@@ -211,7 +211,7 @@ fun FinanceDebts(vm: FinanceViewModel) {
                     )
                 }
                 Spacer(Modifier.height(10.dp))
-                LinearProgressIndicator(
+                VProgress(
                     progress = { ratio.coerceIn(0f, 1f) },
                     modifier = Modifier.fillMaxWidth().height(8.dp).clip(CircleShape),
                     color = color,
