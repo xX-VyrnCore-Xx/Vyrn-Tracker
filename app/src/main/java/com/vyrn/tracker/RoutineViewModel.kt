@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.room.withTransaction
 import com.vyrn.tracker.data.AppDatabase
 import com.vyrn.tracker.data.Habit
 import com.vyrn.tracker.data.HabitLog
@@ -60,8 +61,10 @@ class RoutineViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun deleteHabit(h: Habit) = io {
-        hd.deleteLogs(h.id)
-        hd.delete(h.id)
+        db.withTransaction {
+            hd.deleteLogs(h.id)
+            hd.delete(h.id)
+        }
         Reminders.cancel(ctx, Reminders.KIND_HABIT, h.id)
     }
 
@@ -88,19 +91,24 @@ class RoutineViewModel(app: Application) : AndroidViewModel(app) {
     // ---------- Routine a step ----------
 
     fun saveRoutine(r: Routine, steps: List<RoutineStep>) = io {
-        val id = if (r.id == 0L) rd.insertRoutine(r) else {
-            rd.updateRoutine(r)
-            r.id
+        val id = db.withTransaction {
+            val rid = if (r.id == 0L) rd.insertRoutine(r) else {
+                rd.updateRoutine(r)
+                r.id
+            }
+            rd.deleteStepsNotIn(rid, steps.filter { it.id != 0L }.map { it.id })
+            rd.upsertSteps(steps.mapIndexed { i, s -> s.copy(routineId = rid, position = i) })
+            rid
         }
-        rd.deleteStepsNotIn(id, steps.filter { it.id != 0L }.map { it.id })
-        rd.upsertSteps(steps.mapIndexed { i, s -> s.copy(routineId = id, position = i) })
         Reminders.syncRoutine(ctx, r.copy(id = id))
     }
 
     fun deleteRoutine(r: Routine) = io {
-        rd.deleteStepLogsForRoutine(r.id)
-        rd.deleteSteps(r.id)
-        rd.deleteRoutine(r.id)
+        db.withTransaction {
+            rd.deleteStepLogsForRoutine(r.id)
+            rd.deleteSteps(r.id)
+            rd.deleteRoutine(r.id)
+        }
         Reminders.cancel(ctx, Reminders.KIND_ROUTINE, r.id)
     }
 

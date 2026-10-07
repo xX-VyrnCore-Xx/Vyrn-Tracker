@@ -22,8 +22,15 @@ jobs:
           distribution: temurin
           java-version: 17
       - uses: gradle/actions/setup-gradle@v5
-      - name: Build debug e release APK
-        run: ./gradlew assembleDebug assembleRelease -PversionCode=${{ github.run_number }} -PversionName=$VERSION_NAME --stacktrace
+      - name: Test e build (debug + release)
+        run: ./gradlew testDebugUnitTest assembleDebug assembleRelease -PversionCode=${{ github.run_number }} -PversionName=$VERSION_NAME --stacktrace
+      - name: Report dei test (se falliscono)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: app/build/reports/tests
+          if-no-files-found: ignore
       - name: Prepara APK
         run: |
           mkdir -p dist

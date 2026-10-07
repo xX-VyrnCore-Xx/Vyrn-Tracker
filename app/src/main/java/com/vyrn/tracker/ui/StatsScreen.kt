@@ -41,7 +41,6 @@ import com.vyrn.tracker.data.TxType
 import com.vyrn.tracker.data.WEEKDAY_LETTER
 import com.vyrn.tracker.data.fmtMonthShort
 import com.vyrn.tracker.data.formatMoney
-import com.vyrn.tracker.data.monthRange
 import com.vyrn.tracker.ui.finance.MonthSelector
 import com.vyrn.tracker.ui.theme.ExpenseColor
 import com.vyrn.tracker.ui.theme.IncomeColor
@@ -55,7 +54,8 @@ fun StatsScreen(rvm: RoutineViewModel = viewModel(), fvm: FinanceViewModel = vie
     val logs by rvm.habitLogs.collectAsState()
     val tasks by rvm.tasks.collectAsState()
     val month by fvm.month.collectAsState()
-    val txs by fvm.txs.collectAsState()
+    val totals by fvm.monthlyTotals.collectAsState()
+    val yearCats by fvm.yearExpenseByCategory.collectAsState()
     val monthTxs by fvm.monthTxs.collectAsState()
     val categories by fvm.categories.collectAsState()
 
@@ -93,21 +93,17 @@ fun StatsScreen(rvm: RoutineViewModel = viewModel(), fvm: FinanceViewModel = vie
         }
         .sortedByDescending { it.value }
     val months = (5 downTo 0).map { month.minusMonths(it.toLong()) }
-    val monthIncome = months.map { m -> val r = monthRange(m); txs.filter { it.type == TxType.INCOME && it.day in r }.sumOf { it.amountCents } / 100f }
-    val monthExpense = months.map { m -> val r = monthRange(m); txs.filter { it.type == TxType.EXPENSE && it.day in r }.sumOf { it.amountCents } / 100f }
+    val monthIncome = months.map { m -> (totals[m.toString()]?.first ?: 0L) / 100f }
+    val monthExpense = months.map { m -> (totals[m.toString()]?.second ?: 0L) / 100f }
 
     // Vista annuale (anno del mese selezionato)
     val year = month.year
     val yearMonths = (1..12).map { YearMonth.of(year, it) }
-    val yearIncomeByMonth = yearMonths.map { m -> val r = monthRange(m); txs.filter { it.type == TxType.INCOME && it.day in r }.sumOf { it.amountCents } }
-    val yearExpenseByMonth = yearMonths.map { m -> val r = monthRange(m); txs.filter { it.type == TxType.EXPENSE && it.day in r }.sumOf { it.amountCents } }
+    val yearIncomeByMonth = yearMonths.map { m -> totals[m.toString()]?.first ?: 0L }
+    val yearExpenseByMonth = yearMonths.map { m -> totals[m.toString()]?.second ?: 0L }
     val yearIncome = yearIncomeByMonth.sum()
     val yearExpense = yearExpenseByMonth.sum()
-    val yearTop = txs.filter { it.type == TxType.EXPENSE && LocalDate.ofEpochDay(it.day).year == year }
-        .groupBy { it.categoryId }
-        .map { (id, list) -> (id?.let { catMap[it] }) to list.sumOf { it.amountCents } }
-        .sortedByDescending { it.second }
-        .take(5)
+    val yearTop = yearCats.take(5).map { (it.categoryId?.let { id -> catMap[id] }) to it.total }
     var scope by rememberSaveable { mutableIntStateOf(0) }
 
     ScreenScaffold("Statistiche") {

@@ -2,6 +2,7 @@ package com.vyrn.tracker.data
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 // ---------- Routine ----------
@@ -26,7 +27,7 @@ data class Habit(
     @ColumnInfo(defaultValue = "0") val goalDays: Int = 0,
 )
 
-@Entity(tableName = "habit_logs", primaryKeys = ["habitId", "day"])
+@Entity(tableName = "habit_logs", primaryKeys = ["habitId", "day"], indices = [Index("day")])
 data class HabitLog(
     val habitId: Long,
     val day: Long,
@@ -46,7 +47,7 @@ data class Routine(
     val reminderMinutes: Int = -1,
 )
 
-@Entity(tableName = "routine_steps")
+@Entity(tableName = "routine_steps", indices = [Index("routineId")])
 data class RoutineStep(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val routineId: Long,
@@ -55,14 +56,14 @@ data class RoutineStep(
     val position: Int = 0,
 )
 
-@Entity(tableName = "routine_step_logs", primaryKeys = ["stepId", "day"])
+@Entity(tableName = "routine_step_logs", primaryKeys = ["stepId", "day"], indices = [Index("day")])
 data class RoutineStepLog(
     val stepId: Long,
     val day: Long,
 )
 
 /** priority: 0 = bassa, 1 = media, 2 = alta. dueDay = -1 se senza scadenza. */
-@Entity(tableName = "tasks")
+@Entity(tableName = "tasks", indices = [Index("dueDay")])
 data class Task(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val title: String,
@@ -100,7 +101,10 @@ data class Category(
     val isIncome: Boolean = false,
 )
 
-@Entity(tableName = "transactions")
+@Entity(
+    tableName = "transactions",
+    indices = [Index("day"), Index("accountId"), Index("categoryId")],
+)
 data class FinTx(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val accountId: Long,

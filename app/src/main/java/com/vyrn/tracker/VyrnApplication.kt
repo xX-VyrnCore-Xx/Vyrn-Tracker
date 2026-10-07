@@ -2,6 +2,8 @@ package com.vyrn.tracker
 
 import android.app.Application
 import com.vyrn.tracker.data.AppDatabase
+import com.vyrn.tracker.data.AutoBackup
+import com.vyrn.tracker.data.Maintenance
 import com.vyrn.tracker.data.processRecurring
 import com.vyrn.tracker.data.seedDefaults
 import com.vyrn.tracker.notify.Reminders
@@ -19,10 +21,12 @@ class VyrnApplication : Application() {
         Reminders.ensureChannel(this)
         appScope.launch {
             val db = AppDatabase.get(this@VyrnApplication)
+            Maintenance.repairOrphans(db)
             seedDefaults(db)
             processRecurring(db)
             Reminders.rescheduleAll(this@VyrnApplication)
             refreshWidget(this@VyrnApplication)
+            AutoBackup.runIfDue(this@VyrnApplication)
         }
     }
 }

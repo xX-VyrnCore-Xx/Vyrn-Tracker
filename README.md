@@ -20,6 +20,7 @@ App Android (Kotlin + Jetpack Compose + Material 3) che unisce un **organizzator
 - **Più conti**, categorie personalizzabili, **import/export CSV**.
 
 ### Extra
+- **Dati affidabili**: indici su date/conti/categorie, saldi e totali calcolati in SQL, operazioni multi-passo in transazione, ripristino dei backup atomico, controllo delle righe orfane all'avvio, copia di sicurezza del database prima di ogni migrazione e **backup automatico giornaliero** (ultimi 7 giorni, ripristinabile dalle impostazioni).
 - **Sfide sulle abitudini** (serie da raggiungere, con barra di avanzamento) e **statistiche annuali** di entrate/uscite.
 - **Abitudini da evitare** con conteggio dei giorni liberi e segnalazione delle ricadute.
 - **Timer Focus** (pomodoro) con sessioni giornaliere.
@@ -39,7 +40,7 @@ App Android (Kotlin + Jetpack Compose + Material 3) che unisce un **organizzator
 Requisiti: JDK 17 e Android SDK 37 (Android 17). Stack: Gradle 9.8, AGP 9.4, Kotlin 2.4, Jetpack Compose (BOM 2026.09), Room 2.8.
 
 ```bash
-./gradlew assembleDebug
+./gradlew testDebugUnitTest assembleDebug
 # APK: app/build/outputs/apk/debug/app-debug.apk
 ```
 
